@@ -2,6 +2,7 @@
 #include "perl.h"
 #include "XSUB.h"
 #include "BUtils.h"
+#include "ppport.h"
 
 /* After 5.10, the CxLVAL macro was added. */
 #ifndef CxLVAL
