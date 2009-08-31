@@ -1,5 +1,7 @@
 Revision history for Perl extension B::Utils.
 
+    - compatibility layer in Makefile.PL (Alexandr Ciornii)
+
 0.07 Tue Nov 11 23:05:.. PDT 2008
     - Fixed a refactoring error in walkallops_simple. walkallops* was broken.
     - Avoided base.pm because that library is kind of nasty
