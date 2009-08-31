@@ -1,5 +1,12 @@
 Revision history for Perl extension B::Utils.
 
+0.07 Tue Nov 11 23:05:.. PDT 2008
+    - Fixed a refactoring error in walkallops_simple. walkallops* was broken.
+    - Avoided base.pm because that library is kind of nasty
+
+0.06 ???
+    - Ask CLKAO
+
 0.05_09 Sat Apr 6 16:09:.. CEST 2008
     - Allow for nested disjunctions in opgrep patterns.
 

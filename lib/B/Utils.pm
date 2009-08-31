@@ -22,14 +22,11 @@ B::Utils - Helper functions for op tree manipulation
 
 =head1 VERSION
 
-0.05_09 - This is a dev version and
-  is part of an effort to add tests,
-  functionality, and merge a fork
-  from Module::Info.
+0.07
 
 =cut
 
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 use base 'DynaLoader';
 bootstrap B::Utils $VERSION;
@@ -567,13 +564,15 @@ sub walkoptree_simple {
     $file = '__none__';
     $line = 0;
 
-    &_walkoptree_simple;
+    _walkoptree_simple( {}, @_ );
 
     return TRUE;
 }
 
 sub _walkoptree_simple {
-    my ( $op, $callback, $data ) = @_;
+    my ( $visited, $op, $callback, $data ) = @_;
+
+	return if $visited->{$$op}++;
 
     if ( ref $op and $op->isa("B::COP") ) {
         $file = $op->file;
@@ -585,7 +584,7 @@ sub _walkoptree_simple {
         and $$op
         and $op->flags & OPf_KIDS )
     {
-        _walkoptree_simple( $_, $callback, $data ) for $op->kids;
+        _walkoptree_simple( $visited, $_, $callback, $data ) for $op->kids;
     }
 
     return;
@@ -605,13 +604,13 @@ sub walkoptree_filtered {
     $file = '__none__';
     $line = 0;
 
-    &_walkoptree_filtered;
+    _walkoptree_filtered( {}, @_ );;
 
     return TRUE;
 }
 
 sub _walkoptree_filtered {
-    my ( $op, $filter, $callback, $data ) = @_;
+	my ( $visited, $op, $filter, $callback, $data ) = @_;
 
     if ( $op->isa("B::COP") ) {
         $file = $op->file;
@@ -629,7 +628,7 @@ sub _walkoptree_filtered {
         while ( ref $kid
             and $$kid )
         {
-            _walkoptree_filtered( $kid, $filter, $callback, $data );
+            _walkoptree_filtered( $visited, $kid, $filter, $callback, $data );
 
             $kid = $kid->sibling;
         }
@@ -658,7 +657,7 @@ sub walkallops_simple {
 sub _walkallops_simple {
     my ( $callback, $data ) = @_;
 
-    _init();
+    _init_sub_cache();
 
     walkoptree_simple( $_, $callback, $data ) for values %roots;
 
@@ -685,7 +684,7 @@ sub walkallops_filtered {
 sub _walkallops_filtered {
     my ( $filter, $callback, $data ) = @_;
 
-    _init();
+    _init_sub_cache();
 
     walkoptree_filtered( $_, $filter, $callback, $data ) for values %roots;
 

@@ -6,12 +6,13 @@ use strict;
 use warnings;
 use B::Utils ();
 
-use base 'Exporter';
-our $VERSION = '0.06';
+our @ISA = 'Exporter';
+require Exporter;
+our $VERSION = '0.07';
 our @EXPORT = qw(parent_op return_op);
 
-use base 'DynaLoader';
 
+push @ISA, 'DynaLoader';
 # the boot symbol is in B::Utils.  bootstrap doesn't like it, so we
 # need to load it manually.
 my $bootname = 'boot_B__Utils__OP';
