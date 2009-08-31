@@ -3,17 +3,34 @@ package B::Utils;
 use 5.006;
 use strict;
 use warnings;
+our @EXPORT_OK = qw(all_starts all_roots anon_subs
+                    walkoptree_simple walkoptree_filtered
+                    walkallops_simple walkallops_filtered
+                    carp croak
+                    opgrep
+                   );
+sub import {
+  my $pack = shift;
+  my @exports = @_;
+  my $caller = caller;
+  my %EOK = map {$_ => 1} @EXPORT_OK;
+  for (@exports) {
+    unless ($EOK{$_}) {
+      require Carp;
+      Carp::croak(qq{"$_" is not exported by the $pack module});
+    }
+    no strict 'refs';
+    *{"$caller\::$_"} = \&{"$pack\::$_"};
+  }
+}
 
-our $VERSION = '0.03';
-our @EXPORT_OK;
-use Carp;
-Carp::carp("This is NOT actually B::Utils v0.03.  It is a patched version of B::Utils 0.02.  You should upgrade B::Utils as soon as 0.03 comes out.");
+our $VERSION = '0.04';
 
 use B qw(main_start main_root walksymtable class OPf_KIDS);
 
 my (%starts, %roots, @anon_subs);
 
-our @bad_stashes = qw(B Carp DB Exporter warnings Cwd Config CORE blib strict DynaLoader vars XSLoader AutoLoader base);
+our @bad_stashes = qw(B Carp Exporter warnings Cwd Config CORE blib strict DynaLoader vars XSLoader AutoLoader base);
 
 { my $_subsdone=0;
 sub _init { # To ensure runtimeness.
@@ -112,20 +129,21 @@ sub B::OP::oldname {
 
 =item C<< $op->kids >>
 
-Returns an array of all this op's non-null children.
+Returns an array of all this op's non-null children, in order.
 
 =cut
 
 sub B::OP::kids {
     my $op = shift;
     my @rv;
-    push @rv, $op->first if $op->can("first") and $op->first and ${$op->first};
-    push @rv, $op->last if $op->can("last") and $op->last and ${$op->last};
-    push @rv, $op->other if $op->can("other") and $op->other and ${$op->other};
     if (class($op) eq "LISTOP") { 
         $op = $op->first;
         push @rv, $op while $op->can("sibling") and $op = $op->sibling and $$op;
+        return @rv;
     }
+    push @rv, $op->first if $op->can("first") and $op->first and ${$op->first};
+    push @rv, $op->last if $op->can("last") and $op->last and ${$op->last};
+    push @rv, $op->other if $op->can("other") and $op->other and ${$op->other};
     return @rv;
 }
 
@@ -310,8 +328,8 @@ sub _preparewarn {
     $args .= " at $file line $line.\n" unless substr($args, length($args) -1) eq "\n";
 }
 
-sub croak (@) { CORE::die(_preparewarn(@_)) }
-sub carp  (@) { CORE::warn(_preparewarn(@_)) }
+sub carp  (@) { CORE::die(preparewarn(@_)) }
+sub croak (@) { CORE::warn(preparewarn(@_)) }
 
 =item opgrep(\%conditions, @ops)
 
@@ -367,54 +385,29 @@ sub opgrep {
 
         for my $test (qw(name targ type seq flags private pmflags pmpermflags)) {
             next unless exists $conds{$test};
-            next OPLOOP unless $o->can($test);
-            if (!ref $conds{$test}) {
-                next OPLOOP unless $o->$test eq $conds{$test};
-            } elsif ($conds{$test}[0] eq "!") {
-                my @conds = @{$conds{$test}}; shift @conds;
-                next OPLOOP if grep {$o->$test eq $_} @conds;
-            } else {
-                next OPLOOP unless grep {$o->$test eq $_} @{$conds{name}};
-            }
+            next OPLOOP unless ref $o and $o->can($test);
+	    if (!ref $conds{$test}) {
+	       next OPLOOP if $o->$test ne $conds{$test};
+	    } else {
+		    if ($conds{$test}[0] eq "!") {
+			my @conds = @{$conds{$test}}; shift @conds;
+			next OPLOOP if grep {$o->$test eq $_} @conds;
+		    } else {
+			next OPLOOP unless grep {$o->$test eq $_} @{$conds{$test}};
+		    }
+	    }
         }
 
         for my $neighbour (qw(first other last sibling next pmreplroot pmreplstart pmnext)) {
             next unless exists $conds{$neighbour};
             # We know it can, because we tested that above
-
             # Recurse, recurse!
             next OPLOOP unless opgrep($conds{$neighbour}, $o->$neighbour);
         }
 
-        push @rv, $o;
+        push @rv, $_;
     }
     return @rv;
-}
-
-# 20020205 MJD
-BEGIN {
-  @EXPORT_OK = qw(all_starts all_roots 
-                  anon_subs 
-                  walkoptree_simple
-                  walkoptree_filtered
-                  walkallops_filtered
-                  carp croak
-                  opgrep                  
-                 );
-}
-sub import {
-  my $pack = shift;
-  my @exports = @_;
-  my $caller = caller;
-  my %EOK = map {$_ => 1} @EXPORT_OK;
-  for (@exports) {
-    unless ($EOK{$_}) {
-      require Carp;
-      Carp::croak(qq{"$_" is not exported by the $pack module});
-    }
-    no strict 'refs';
-    *{"$caller\::$_"} = \&{"$pack\::$_"};
-  }
 }
 
 1;

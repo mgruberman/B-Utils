@@ -1,5 +1,12 @@
 Revision history for Perl extension B::Utils.
 
+0.04 Thu May  2 21:56:03 BST 2002
+    - Various fixes to walkoptrees stuff.
+
+0.03  Wed Dec 12 22:20:07 GMT 2001
+    - Fix up bad showstopper bug in ->kids()
+    - Some patches from Schwern.
+
 0.02  Wed Aug 15 07:03:21 2001
     - Fix up some horribly glaring bugs
     - Add opgrep, walk*, croak and carp
