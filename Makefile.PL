@@ -33,14 +33,14 @@ WriteMakefile(
     },
     PREREQ_PM     => {
         'Test::More' => 0,
-    }
+    },
     ABSTRACT_FROM => 'lib/B/Utils.pm',
     AUTHOR        => 'Joshua b. Jore <jjore@cpan.org>',
     LICENSE       => 'perl',
     MIN_PERL_VERSION => 5.006,
     CONFIGURE_REQUIRES => {
         'ExtUtils::Depends' => $ExtUtils_Depends_required,
-    }
+    },
     test          => { TESTS => 't/*.t t/*/*.t' },
     $pkg->get_makefile_vars,
 );
