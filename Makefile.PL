@@ -24,7 +24,7 @@ $pkg->save_config('build/IFiles.pm');
 
 use ExtUtils::MakeMaker;
 
-WriteMakefile(
+WriteMakefile1(
     NAME          => 'B::Utils',
     VERSION_FROM  => 'lib/B/Utils.pm',
     PREREQ_PM     => {
@@ -32,16 +32,16 @@ WriteMakefile(
         'Task::Weaken' => 0,
         'Exporter'     => 0,
     },
-    PREREQ_PM     => {
+    BUILD_REQUIRES => {
         'Test::More' => 0,
+    },
+    CONFIGURE_REQUIRES => {
+        'ExtUtils::Depends' => $ExtUtils_Depends_required,
     },
     ABSTRACT_FROM => 'lib/B/Utils.pm',
     AUTHOR        => 'Joshua b. Jore <jjore@cpan.org>',
     LICENSE       => 'perl',
     MIN_PERL_VERSION => 5.006,
-    CONFIGURE_REQUIRES => {
-        'ExtUtils::Depends' => $ExtUtils_Depends_required,
-    },
     META_MERGE => {
       resources => {
         repository => 'http://github.com/jbenjore/B-Utils/tree',
