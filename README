@@ -1,12 +1,13 @@
-B/Utils version 0.02
+B/Utils version 0.05
 ====================
 
 NAME
     B::Utils - Helper functions for op tree manipulation
 
 What's new in this version:
-    * Fixed some brown-bag bugs
-    * Added the following Fun Things:
+    * Took over from Simon Cozens
+    * Added null()
+    * Fixed ->parent
 
     walkoptree_simple($op, \&callback, [$data])
        The "B" module provides various functions to walk the op tree, but
@@ -96,5 +97,5 @@ COPYRIGHT AND LICENCE
 
 AL & GPL. You know the score.
 
-Copyright (C) 2001 Simon Cozens
+Copyright (C) 2004 Joshua b. Jore
 

@@ -3,6 +3,7 @@ package B::Utils;
 use 5.006;
 use strict;
 use warnings;
+use vars '$DEBUG';
 our @EXPORT_OK = qw(all_starts all_roots anon_subs
                     walkoptree_simple walkoptree_filtered
                     walkallops_simple walkallops_filtered
@@ -24,13 +25,18 @@ sub import {
   }
 }
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use B qw(main_start main_root walksymtable class OPf_KIDS);
 
 my (%starts, %roots, @anon_subs);
 
 our @bad_stashes = qw(B Carp Exporter warnings Cwd Config CORE blib strict DynaLoader vars XSLoader AutoLoader base);
+
+sub null {
+    my $op = shift;
+    class( $op ) eq 'NULL';
+}
 
 { my $_subsdone=0;
 sub _init { # To ensure runtimeness.
@@ -159,40 +165,114 @@ that.
 
 =cut
 
-# This is probably the most efficient algorithm for finding the parent given the
-# next node in execution order and the children of an op. You'll be glad to hear
-# that it doesn't do a full search of the tree from the root, but it searches
-# ever-higher subtrees using a breathtaking double recursion. It works on the
-# principle that the C<next> pointer will always point to an op further northeast
-# on the tree, and hence will be heading upwards toward the parent.
-
 sub B::OP::parent {
     my $target = shift;
+    printf( "parent %s %s=(0x%07x)\n",
+	    B::class( $target),
+	    $target->oldname,
+	    $$target )
+	if $DEBUG;
+
     die "I'm not sure how to do this yet. I'm sure there is a way. If you know, please email me."
         if (!$target->seq);
-    my (%deadend, $search);
-    $search = sub {
-        my $node = shift || return undef;
 
+    my (%deadend, $search_kids);
+    $search_kids = sub {
+        my $node = shift || return undef;
+	
+	printf( "Searching from %s %s=(0x%07x)\n",
+		class($node)||'?',
+		$node->oldname,
+		$$node )
+	    if $DEBUG;
+		
         # Go up a level if we've got stuck, and search (for the same
         # $target) from a higher vantage point.
-        return $search->($node->parent) if exists $deadend{$node};
-
-        # Test the immediate children
-        return $node if scalar grep {$_ == $target} $node->kids;
-
-        # Recurse
-        my $x;
-        defined($x = $search->($_)) and return $x for $node->kids;
-
+        if ( exists $deadend{ $node } )
+	{
+	    printf( "   search parent %s %s=(0x%07x)\n",
+		    B::class( $node ),
+		    $node->oldname,
+		    $$node )
+		if $DEBUG;
+	    return $search_kids->( $node->parent );
+	}
+	
+        # Test the immediate children, but only children we haven't visited
+	# already.
+	my @new_kids = ( grep !$deadend{ $_ },
+			 $node->kids );
+	if ( scalar grep $$_ == $$target, @new_kids )
+	{
+	    return $node;
+	}
+	
+        # Recurse and examine each child, in turn.
+	print( "   search kids\n"
+	       . join( "",
+		       map sprintf( "      %s %s=(0x%07x)\n",
+				    B::class( $_ ),
+				    $_->oldname,
+				    $$_ ),
+		       @new_kids ) )
+	    if $DEBUG and @new_kids;
+	
+	for ( @new_kids )
+	{
+	    my $x = $search_kids->( $_ );
+	    return $x if $x;
+	}
+	
         # Not in this subtree.
         $deadend{$node}++;
         return undef;
-   };
-   my $result;
-   my $start = $target;
-   $result = $search->($start) and return $result while $start = $start->next;
-   return $search->($start);
+    };
+    my $start = $target;
+    
+    # Skip to the farthest sibling and make a list of each with the most
+    # recent at the beginning of the list.
+    
+    # I am planning ahead for the day when it turns out that the parent
+    # cannot be found in the last sibling somewhere. Maybe it is just a
+    # null? I would like to be able to back track up the tree to find a
+    # ->next node that will bring us to northeast of (or even better,
+    # directly to) the parent.
+    my @siblings = $start;
+    while ( $start and
+	    ${$start->sibling} )
+    {
+	$start = $start->sibling;
+	unshift @siblings, $start;
+	printf( "->sibling %s %s=(0x%07x)\n",
+		class($start)||'null',
+		$start->oldname,
+		$$start )
+	    if $DEBUG;
+    }
+    
+    # Now search each sibling as noted from above.
+    for $start ( @siblings )
+    {
+	my $next = $start;
+	while ( $$next )
+	{
+	    printf( "->next %s %s=(0x%07x)\n",
+		    B::class( $next ),
+		    $next->oldname,
+		    $$next )
+		if $DEBUG;
+	
+	    my $result = $search_kids->( $next );
+	    return $result if $result;
+	}
+	continue
+	{
+	    $next = $next->next;
+	}
+    }
+    
+    # Having reached here... I give up?
+    undef;
 }
 
 =item C<< $op->previous >>

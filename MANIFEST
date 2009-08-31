@@ -1,6 +1,7 @@
 Changes
+lib/B/Utils.pm
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 README
-test.pl
-Utils.pm
+t/02basic.t
+META.yml                                 Module meta-data (added by MakeMaker)

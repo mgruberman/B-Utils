@@ -1,5 +1,9 @@
 Revision history for Perl extension B::Utils.
 
+0.05 Thu Nov 25 22:23:00 CST 2004
+    - My birthday
+    - Fixed infinite loop in ->parent
+
 0.04 Thu May  2 21:56:03 BST 2002
     - Various fixes to walkoptrees stuff.
 
