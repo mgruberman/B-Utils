@@ -2,7 +2,6 @@ build/IFiles.pm
 BUtils.h
 BUtils_op.h
 Changes
-inc/ExtUtils/Depends.pm
 lib/B/Utils.pm
 lib/B/Utils/OP.pm
 Makefile.PL

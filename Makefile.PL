@@ -1,5 +1,12 @@
-use lib 'inc';
-require ExtUtils::Depends;
+use strict;
+my $ExtUtils_Depends_required = 0.302; #minimum version that works on Win32+gcc
+eval {
+	require ExtUtils::Depends;
+};
+if ( $@ or ExtUtils::Depends->VERSION < $ExtUtils_Depends_required ) {
+	print "ExtUtils::Depends $ExtUtils_Depends_required is required to configure this module, please install it manually or upgrade your CPAN/CPANPLUS shell\n";
+	exit(0);
+}
 
 my $pkg = ExtUtils::Depends->new('B::Utils');
 
@@ -19,11 +26,21 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME          => 'B::Utils',
     VERSION_FROM  => 'lib/B/Utils.pm',
-    PREREQ_PM     => {},
+    PREREQ_PM     => {
+        'Scalar::Util' => 0,
+        'Task::Weaken' => 0,
+        'Exporter'     => 0,
+    },
+    PREREQ_PM     => {
+        'Test::More' => 0,
+    }
     ABSTRACT_FROM => 'lib/B/Utils.pm',
     AUTHOR        => 'Joshua b. Jore <jjore@cpan.org>',
     LICENSE       => 'perl',
     MIN_PERL_VERSION => 5.006,
+    CONFIGURE_REQUIRES => {
+        'ExtUtils::Depends' => $ExtUtils_Depends_required,
+    }
     test          => { TESTS => 't/*.t t/*/*.t' },
     $pkg->get_makefile_vars,
 );
