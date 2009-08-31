@@ -1,65 +1,83 @@
-B/Utils version 0.01
+B/Utils version 0.02
 ====================
 
 NAME
     B::Utils - Helper functions for op tree manipulation
 
-SYNOPSIS
-      use B::Utils;
+What's new in this version:
+    * Fixed some brown-bag bugs
+    * Added the following Fun Things:
 
-FUNCTIONS
-    "all_starts"
-    "all_roots"
-       Returns a hash of all of the starting ops or root ops of optrees,
-       keyed to subroutine name; the optree for main program is simply keyed
-       to "main".
+    walkoptree_simple($op, \&callback, [$data])
+       The "B" module provides various functions to walk the op tree, but
+       they're all rather difficult to use, requiring you to inject methods
+       into the "B::OP" class. This is a very simple op tree walker with
+       more expected semantics.
 
-       Note: Certain "dangerous" stashes are not scanned for subroutines:
-       the list of such stashes can be found in "@B::Utils::bad_stashes".
-       Feel free to examine and/or modify this to suit your needs. The
-       intention is that a simple program which uses no modules other than
-       "B" and "B::Utils" would show no addition symbols.
+       All the "walk" functions set "B::Utils::file" and "B::Utils::line" to
+       the appropriate values of file and line number in the program being
+       examined.
 
-       This does not return the details of ops in anonymous subroutines
-       compiled at compile time. For instance, given
+    walkoptree_filtered($op, \&filter, \&callback, [$data])
+       This is much the same as "walkoptree_simple", but will only call the
+       callback if the "filter" returns true. The "filter" is passed the op
+       in question as a parameter; the "opgrep" function is fantastic for
+       building your own filters.
 
-           $a = sub { ... };
+    walkallops_simple(\&callback, [$data])
+       This combines "walkoptree_simple" with "all_roots" and "anon_subs" to
+       examine every op in the program. "$B::Utils::sub" is set to the
+       subroutine name if you're in a subroutine, "__MAIN__" if you're in
+       the main program and "__ANON__" if you're in an anonymous subroutine.
 
-       the subroutine will not appear in the hash. This is just as well,
-       since they're anonymous... If you want to get at them, use...
+    walkallops_filtered(\&filter, \&callback, [$data])
+       Same as above, but filtered.
 
-    "anon_subs()"
-       This returns an array of hash references. Each element has the keys
-       "start" and "root". These are the starting and root ops of all of the
-       anonymous subroutines in the program.
+    carp(@args)
+    croak(@args)
+       Warn and die, respectively, from the perspective of the position of
+       the op in the program. Sounds complicated, but it's exactly the kind
+       of error reporting you expect when you're grovelling through an op
+       tree.
 
-    "$op->oldname"
-       Returns the name of the op, even if it is currently optimized to
-       null. This helps you understand the stucture of the op tree.
+    opgrep(\%conditions, @ops)
+       Returns the ops which meet the given conditions. The conditions
+       should be specified like this:
 
-    "$op->kids"
-       Returns an array of all this op's non-null children.
+           @barewords = opgrep(
+                               { name => "const", private => OPpCONST_BARE },
+                               @ops
+                              );
 
-    "$op->parent"
-       Returns the parent node in the op tree, if possible. Currently
-       "possible" means "if the tree has already been optimized"; that is,
-       if we're during a "CHECK" block. (and hence, if we have valid "next"
-       pointers.)
+       You can specify alternation by giving an arrayref of values:
 
-       In the future, it may be possible to search for the parent before we
-       have the "next" pointers in place, but it'll take me a while to
-       figure out how to do that.
+           @svs = opgrep ( { name => ["padsv", "gvsv"] }, @ops)
 
-    "$op->previous"
-       Like "$op->next", but not quite.
+       And you can specify inversion by making the first element of the
+       arrayref a "!". (Hint: if you want to say "anything", say "not
+       nothing": "["!"]")
 
-AUTHOR
-       Simon Cozens, "simon@cpan.org"
+       You may also specify the conditions to be matched in nearby ops.
 
-TODO
-       I need to add more Fun Things, and possibly clean up some parts where
-       the (previous/parent) algorithm has catastrophic cases, but it's more
-       important to get this out right now than get it right.
+           walkallops_filtered(
+               sub { opgrep( {name => "exec", 
+                              next => {
+                                        name    => "nextstate",
+                                        sibling => { name => [qw(! exit warn die)] }
+                                      }
+                             }, @_)},
+               sub { 
+                     carp("Statement unlikely to be reached"); 
+                     carp("\t(Maybe you meant system() when you said exec()?)\n");
+               }
+           )
+
+       Get that?
+
+       Here are the things that can be tested:
+
+               name targ type seq flags private pmflags pmpermflags
+               first other last sibling next pmreplroot pmreplstart pmnext
 
 INSTALLATION
 
