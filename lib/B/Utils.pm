@@ -3,74 +3,396 @@ package B::Utils;
 use 5.006;
 use strict;
 use warnings;
-use vars '$DEBUG';
-our @EXPORT_OK = qw(all_starts all_roots anon_subs
-                    walkoptree_simple walkoptree_filtered
-                    walkallops_simple walkallops_filtered
-                    carp croak
-                    opgrep
-                   );
-sub import {
-  my $pack = shift;
-  my @exports = @_;
-  my $caller = caller;
-  my %EOK = map {$_ => 1} @EXPORT_OK;
-  for (@exports) {
-    unless ($EOK{$_}) {
-      require Carp;
-      Carp::croak(qq{"$_" is not exported by the $pack module});
-    }
-    no strict 'refs';
-    *{"$caller\::$_"} = \&{"$pack\::$_"};
-  }
-}
+use vars qw( $VERSION @EXPORT_OK %EXPORT_TAGS
+    @bad_stashes $TRACE_FH $file $line $sub );
 
-our $VERSION = '0.05';
+use subs (
+    qw( all_starts all_roots anon_sub recalc_sub_cache ),
+    qw( walkoptree_simple walkoptree_filtered ),
+    qw( walkallops_simple walkallops_filtered ),
+    qw( opgrep op_or ),
+    qw( croak carp )
+);
 
-use B qw(main_start main_root walksymtable class OPf_KIDS);
-
-my (%starts, %roots, @anon_subs);
-
-our @bad_stashes = qw(B Carp Exporter warnings Cwd Config CORE blib strict DynaLoader vars XSLoader AutoLoader base);
-
-sub null {
-    my $op = shift;
-    class( $op ) eq 'NULL';
-}
-
-{ my $_subsdone=0;
-sub _init { # To ensure runtimeness.
-    return if $_subsdone;
-    %starts = ( '__MAIN__' =>  main_start() );
-    %roots  = ( '__MAIN__' =>  main_root()  );
-    walksymtable(\%main::, 
-                '_push_starts', 
-                sub { 
-                    return if scalar grep {$_[0] eq $_."::"} @bad_stashes;   
-                    1;
-                }, # Do not eat our own children!
-                '');
-    push @anon_subs, { root => $_->ROOT, start => $_->START} 
-        for grep { class($_) eq "CV" } B::main_cv->PADLIST->ARRAY->ARRAY;
-    $_subsdone=1;
-}
-}
+use Scalar::Util qw( weaken blessed );
 
 =head1 NAME
 
 B::Utils - Helper functions for op tree manipulation
 
+=head1 VERSION
+
+0.05_09 - This is a dev version and
+  is part of an effort to add tests,
+  functionality, and merge a fork
+  from Module::Info.
+
+=cut
+
+$VERSION = '0.06';
+
+use base 'DynaLoader';
+bootstrap B::Utils $VERSION;
+#bootstrap B::Utils::OP $VERSION;
+#B::Utils::OP::boot_B__Utils__OP();
+sub dl_load_flags {0x01}
+
 =head1 SYNOPSIS
 
   use B::Utils;
 
-=head1 DESCRIPTION
+=cut
 
-These functions make it easier to manipulate the op tree.
+use B qw( OPf_KIDS main_start main_root walksymtable class main_cv ppname );
 
-=head1 FUNCTIONS
+use Exporter ();
+@EXPORT_OK = qw(all_starts all_roots anon_subs
+    walkoptree_simple walkoptree_filtered
+    walkallops_simple walkallops_filtered
+    recalc_sub_cache
+    opgrep op_or );
+%EXPORT_TAGS = ( all => \@EXPORT_OK );
+*import      = \&Exporter::import;
 
-=over 3
+@bad_stashes
+    = qw(B Carp Exporter warnings Cwd Config CORE blib strict DynaLoader vars XSLoader AutoLoader base);
+
+use List::Util qw( shuffle );
+
+BEGIN {
+
+    # Fake up a TRACE constant and set $TRACE_FH
+    BEGIN { $^W = 0 }
+    no warnings;
+    eval 'sub TRACE () {' . ( 0 + $ENV{B_UTILS_TRACE} ) . '}';
+    die $@ if $@;
+    $TRACE_FH ||= \*STDOUT;
+}
+sub TRUE ()  { !!1 }
+sub FALSE () { !!0 }
+
+=head1 OP METHODS
+
+=over 4
+
+=cut
+
+# The following functions have been removed because it turns out that
+# this breaks stuff like B::Concise which depends on ops lacking
+# methods they wouldn't normally have.
+#
+# =pod
+#
+# =item C<$op-E<gt>first>
+#
+# =item C<$oo-E<gt>last>
+#
+# =item C<$op-E<gt>other>
+#
+# Normally if you call first, last or other on anything which is not an
+# UNOP, BINOP or LOGOP respectivly it will die.  This leads to lots of
+# code like:
+#
+#     $op->first if $op->can('first');
+#
+# B::Utils provides every op with first, last and other methods which
+# will simply return nothing if it isn't relevent.
+#
+# =cut
+#
+# sub B::OP::first { $_[0]->can("SUPER::first") ? $_[0]->SUPER::first() : () }
+# sub B::OP::last  { $_[0]->can("SUPER::last")  ? $_[0]->SUPER::last()  : () }
+# sub B::OP::other { $_[0]->can("SUPER::other") ? $_[0]->SUPER::other() : () }
+
+=item C<$op-E<gt>oldname>
+
+Returns the name of the op, even if it is currently optimized to null.
+This helps you understand the stucture of the op tree.
+
+=cut
+
+sub B::OP::oldname {
+    my $op   = shift;
+    my $name = $op->name;
+    my $targ = $op->targ;
+
+    # This is a an operation which *used* to be a real op but was
+    # optimized away. Fetch the old value and ignore the leading pp_.
+
+    # I forget why the original pp # is located in the targ field.
+    return $name eq 'null' && $targ
+        ? substr( ppname($targ), 3 )
+        : $name;
+
+}
+
+=item C<$op-E<gt>kids>
+
+Returns an array of all this op's non-null children, in order.
+
+=cut
+
+sub B::OP::kids {
+    my $op = shift;
+    return unless defined wantarray;
+
+    my @kids;
+    if ( class($op) eq "LISTOP" ) {
+        @kids = $op->first;
+        push @kids, $kids[-1]->sibling while $kids[-1]->can('sibling');
+        pop @kids
+            if 'NULL' eq class( $kids[-1] );
+
+        ### Assert: $op->children == @kids
+    }
+    else {
+        @kids = (
+            ( $op->can('first') ? $op->first : () ),
+            ( $op->can('last')  ? $op->last  : () ),
+            ( $op->can('other') ? $op->other : () )
+        );
+    }
+    return @kids;
+}
+
+=item C<$op-E<gt>parent>
+
+Returns the parent node in the op tree, if possible. Currently
+"possible" means "if the tree has already been optimized"; that is, if
+we're during a C<CHECK> block. (and hence, if we have valid C<next>
+pointers.)
+
+In the future, it may be possible to search for the parent before we
+have the C<next> pointers in place, but it'll take me a while to
+figure out how to do that.
+
+=cut
+
+sub B::OP::parent {
+    my $op     = shift;
+    my $parent = $op->_parent_impl( $op, "" );
+
+    $parent;
+}
+
+sub B::NULL::_parent_impl { }
+
+sub B::OP::_parent_impl {
+    my ( $op, $target, $cx ) = @_;
+
+    return if $cx =~ /\b$$op\b/;
+
+    for ( $op->kids ) {
+        if ( $$_ == $$target ) {
+            return $op;
+        }
+    }
+
+    return (
+        $op->sibling->_parent_impl( $target, "$cx$$op S " )
+            || (
+              $cx =~ /^(?:\d+ S )*(?:\d+ N )*$/
+            ? $op->next->_parent_impl( $target, "$cx$$op N " )
+            : ()
+            )
+            || (
+              $op->can('first')
+            ? $op->first->_parent_impl( $target, "$cx$$op F " )
+            : ()
+            )
+    );
+}
+
+=item C<$op-E<gt>ancestors>
+
+Returns all parents of this node, recursively. The list is ordered
+from younger/closer parents to older/farther parents.
+
+=cut
+
+sub B::OP::ancestors {
+    my @nodes = shift;
+
+    my $parent;
+    push @nodes, $parent while $parent = $nodes[-1]->parent;
+    shift @nodes;
+
+    return @nodes;
+}
+
+=item C<$op-E<gt>descendants>
+
+Returns all children of this node, recursively. The list is unordered.
+
+=cut
+
+sub B::OP::descendants {
+    my $node = shift;
+    my @nodes;
+    walkoptree_simple( $node,
+        sub { push @nodes, $_ if ${ $_[0] } != $$node } );
+    return shuffle @nodes;
+}
+
+=item C<$op-E<gt>siblings>
+
+Returns all younger siblings of this node. The list is ordered from
+younger/closer siblings to older/farther siblings.
+
+=cut
+
+sub B::OP::siblings {
+    my @siblings = shift;
+
+    my $sibling;
+    push @siblings, $sibling while $sibling = $siblings[-1]->can('sibling');
+    shift @siblings;
+    pop @siblings if 'NULL' eq class $siblings[-1];
+
+    return @siblings;
+}
+
+=item C<$op-E<gt>previous>
+
+Like C< $op-E<gt>next >, but not quite.
+
+=cut
+
+## sub B::OP::previous {
+##     return unless defined wantarray;
+##
+##     my $target = shift;
+##
+##     my $start = $target;
+##     my (%deadend, $search);
+##     $search = sub {
+##         my $node = $_[0];
+##
+##         unless ( defined $node ) {
+##             # If I've been asked to search nothing, just return. The
+##             # ->parent call might do this to me.
+##             return FALSE;
+##         }
+##         elsif ( exists $deadend{$node} ) {
+##             # If this node has been seen already, try again as its
+##             # parent.
+##             return $search->( $node->parent );
+##         }
+##         elsif ( eval { ${$node->next} == $$target } ) {
+##             return $node;
+##         }
+##
+##         # When searching the children, do it in reverse order because
+##         # pointers back up are more likely to be farther down the
+##         # stack. This works without reversing but I can avoid some
+##         # work by ordering the work this way.
+##         my @kids = reverse $node->kids;
+##
+##         # Search this node's direct children for the ->next pointer
+##         # that points to this node.
+##         eval { ${$_->can('next')} == $$target } and return $_->next
+##           for @kids;
+##
+##         # For each child, check it for a match.
+## 	my $found;
+##         $found = $search->($_) and return $found
+##           for @kids;
+##
+##         # Not in this subtree.
+##         $deadend{$node} = TRUE;
+##         return FALSE;
+##     };
+##
+##     my $next = $target;
+##     while ( eval { $next = $next->next } ) {
+## 	my $result;
+##         $result = $search->( $next )
+##           and return $result;
+##     }
+##
+##     return FALSE;
+## }
+
+=item C<$op-E<gt>stringify>
+
+Returns a nice stringification of an opcode.
+
+=cut
+
+sub B::OP::stringify {
+    my $op = shift;
+
+    return sprintf "%s-%s=(0x%07x)", $op->name, class($op), $$op;
+}
+
+=item C<$op-E<gt>as_opgrep_pattern(%options)>
+
+From the op tree it is called on, C<as_opgrep_pattern()>
+generates a data structure suitable for use as a condition pattern
+for the C<opgrep()> function described below in detail.
+I<Beware>: When using such generated patterns, there may be
+false positives: The pattern will most likely not match I<only>
+the op tree it was generated from since by default, not all properties
+of the op are reproduced.
+
+You can control which properties of the op to include in the pattern
+by passing named arguments. The default behaviour is as if you
+passed in the following options:
+
+  my $pattern = $op->as_opgrep_pattern(
+    attributes          => [qw(name flags)],
+    max_recursion_depth => undef,
+  );
+
+So obviously, you can set C<max_recursion_depth> to a number to
+limit the maximum depth of recursion into the op tree. Setting
+it to C<0> will limit the dump to the current op.
+
+C<attributes> is a list of attributes to include in the produced
+pattern. The attributes that can be checked against in this way
+are 
+
+  name targ type seq flags private pmflags pmpermflags.
+
+=cut
+
+sub B::OP::as_opgrep_pattern {
+  my $op = shift;
+  my $opt = (@_ == 1 and ref($_[0]) eq 'HASH') ? shift() : {@_};
+
+  my $attribs = $opt->{attributes};
+  $attribs ||= [qw(name flags)];
+  
+  my $pattern = {};
+  foreach my $attr (@$attribs) {
+    $pattern->{$attr} = $op->$attr() if $op->can($attr);
+  }
+
+  my $recursion_limit = $opt->{max_recursion_depth};
+  if ( (not defined $recursion_limit or $recursion_limit > 0)
+       and ref($op)
+       and $$op
+       and $op->flags & OPf_KIDS
+  ) {
+    $opt->{max_recursion_depth}-- if defined $recursion_limit;
+
+    $pattern->{kids} = [
+      map { $_->as_opgrep_pattern($opt) } $op->kids()
+    ];
+  }
+
+  # reset the option structure in case we got a hash ref passed in.
+  $opt->{max_recursion_depth} = $recursion_limit
+    if exists $opt->{max_recursion_depth};
+
+  return $pattern;
+}
+
+=back
+
+=head1 EXPORTABLE FUNCTIONS
+
+=over 4
 
 =item C<all_starts>
 
@@ -79,279 +401,244 @@ These functions make it easier to manipulate the op tree.
 Returns a hash of all of the starting ops or root ops of optrees, keyed
 to subroutine name; the optree for main program is simply keyed to C<__MAIN__>.
 
-B<Note>: Certain "dangerous" stashes are not scanned for subroutines: 
-the list of such stashes can be found in C<@B::Utils::bad_stashes>. Feel
-free to examine and/or modify this to suit your needs. The intention is
-that a simple program which uses no modules other than C<B> and
-C<B::Utils> would show no addition symbols.
+B<Note>: Certain "dangerous" stashes are not scanned for subroutines:
+the list of such stashes can be found in
+C<@B::Utils::bad_stashes>. Feel free to examine and/or modify this to
+suit your needs. The intention is that a simple program which uses no
+modules other than C<B> and C<B::Utils> would show no addition
+symbols.
 
 This does B<not> return the details of ops in anonymous subroutines
-compiled at compile time. For instance, given 
+compiled at compile time. For instance, given
 
     $a = sub { ... };
 
-the subroutine will not appear in the hash. This is just as well, since
-they're anonymous... If you want to get at them, use...
+the subroutine will not appear in the hash. This is just as well,
+since they're anonymous... If you want to get at them, use...
 
-=item C<anon_subs()>
+=cut
+
+my ( %starts, %roots );
+sub all_starts { _init_sub_cache(); wantarray ? %starts : \%starts }
+sub all_roots  { _init_sub_cache(); wantarray ? %roots  : \%roots }
+
+=item C<anon_subs>
 
 This returns an array of hash references. Each element has the keys
-"start" and "root". These are the starting and root ops of all of
-the anonymous subroutines in the program.
+"start" and "root". These are the starting and root ops of all of the
+anonymous subroutines in the program.
 
 =cut
 
-sub all_starts { _init(); return %starts; }
-sub all_roots  { _init(); return %roots; }
-sub anon_subs { _init(); return @anon_subs }
+my @anon_subs;
+sub anon_subs { _init_sub_cache(); wantarray ? @anon_subs : \@anon_subs }
 
-sub B::GV::_push_starts {
-    my $name = $_[0]->STASH->NAME."::".$_[0]->SAFENAME;
-    return unless ${$_[0]->CV};
-    my $cv = $_[0]->CV;
+=item C<recalc_sub_cache>
 
-    if ($cv->PADLIST->can("ARRAY") and $cv->PADLIST->ARRAY and $cv->PADLIST->ARRAY->can("ARRAY")) {
-        push @anon_subs, { root => $_->ROOT, start => $_->START} 
-            for grep { class($_) eq "CV" } $cv->PADLIST->ARRAY->ARRAY;
-    }
-    return unless ${$cv->START} and ${$cv->ROOT};
-    $starts{$name} = $cv->START;
-    $roots{$name} = $cv->ROOT;
-};
-
-sub B::SPECIAL::_push_starts{}
-
-=item C<< $op->oldname >>
-
-Returns the name of the op, even if it is currently optimized to null.
-This helps you understand the stucture of the op tree.
+If PL_sub_generation has changed or you have some other reason to want
+to force the re-examination of the optrees, everywhere, call this
+function.
 
 =cut
 
-sub B::OP::oldname {
-    return substr(B::ppname($_[0]->targ),3) if $_[0]->name eq "null" and $_[0]->targ;
-    return $_[0]->name;
+my $subs_cached = FALSE;
+
+sub recalc_sub_cache {
+    $subs_cached = FALSE;
+
+    %starts = %roots = @anon_subs = ();
+
+    _init_sub_cache();
+    return;
 }
 
-=item C<< $op->kids >>
+sub _init_sub_cache {
 
-Returns an array of all this op's non-null children, in order.
+    # Allow this function to be run only once.
+    return if $subs_cached;
 
-=cut
+    %starts = ( __MAIN__ => main_start() );
+    %roots  = ( __MAIN__ => main_root() );
 
-sub B::OP::kids {
-    my $op = shift;
-    my @rv;
-    if (class($op) eq "LISTOP") { 
-        $op = $op->first;
-        push @rv, $op while $op->can("sibling") and $op = $op->sibling and $$op;
-        return @rv;
-    }
-    push @rv, $op->first if $op->can("first") and $op->first and ${$op->first};
-    push @rv, $op->last if $op->can("last") and $op->last and ${$op->last};
-    push @rv, $op->other if $op->can("other") and $op->other and ${$op->other};
-    return @rv;
+    # Through the magic of B::'s ugly callback system, %starts and
+    # %roots will be populated.
+    walksymtable(
+        \%main::,
+        _B_Utils_init_sub_cache => sub {
+
+            # Do not eat our own children!
+            $_[0] eq "$_\::" && return FALSE for @bad_stashes;
+
+            return TRUE;
+        },
+        ''
+    );
+
+    # Some sort of file-scoped anonymous code refs are found here. In
+    # general, when a function has anonymous functions, they can be
+    # found in the scratchpad.
+    push @anon_subs,
+        map( (
+            'CV' eq class($_)
+            ? { root  => $_->ROOT,
+                start => $_->START
+                }
+            : ()
+        ),
+        main_cv()->PADLIST->ARRAY->ARRAY );
+
+    $subs_cached = TRUE;
+    return;
 }
 
-=item C<< $op->parent >>
+sub B::GV::_B_Utils_init_sub_cache {
 
-Returns the parent node in the op tree, if possible. Currently "possible" means
-"if the tree has already been optimized"; that is, if we're during a C<CHECK>
-block. (and hence, if we have valid C<next> pointers.)
+    # This is a callback function called from B::Utils::_init via
+    # B::walksymtable.
 
-In the future, it may be possible to search for the parent before we have the
-C<next> pointers in place, but it'll take me a while to figure out how to do
-that.
+    my $gv = shift;
+    my $cv = $gv->CV;
 
-=cut
+    # If the B::CV object is a pointer to nothing, ignore it.
+    return unless $$cv;
 
-sub B::OP::parent {
-    my $target = shift;
-    printf( "parent %s %s=(0x%07x)\n",
-	    B::class( $target),
-	    $target->oldname,
-	    $$target )
-	if $DEBUG;
+    # Simon was originally using $gv->SAFENAME but I don't think
+    # that's a "correct" decision because then oddly named functions
+    # can't be disambiguated. If a function were actually named ^G, I
+    # couldn't tell it apart from one named after the control
+    # character ^G.
+    my $name = $gv->STASH->NAME . "::" . $gv->NAME;
 
-    die "I'm not sure how to do this yet. I'm sure there is a way. If you know, please email me."
-        if (!$target->seq);
-
-    my (%deadend, $search_kids);
-    $search_kids = sub {
-        my $node = shift || return undef;
-	
-	printf( "Searching from %s %s=(0x%07x)\n",
-		class($node)||'?',
-		$node->oldname,
-		$$node )
-	    if $DEBUG;
-		
-        # Go up a level if we've got stuck, and search (for the same
-        # $target) from a higher vantage point.
-        if ( exists $deadend{ $node } )
-	{
-	    printf( "   search parent %s %s=(0x%07x)\n",
-		    B::class( $node ),
-		    $node->oldname,
-		    $$node )
-		if $DEBUG;
-	    return $search_kids->( $node->parent );
-	}
-	
-        # Test the immediate children, but only children we haven't visited
-	# already.
-	my @new_kids = ( grep !$deadend{ $_ },
-			 $node->kids );
-	if ( scalar grep $$_ == $$target, @new_kids )
-	{
-	    return $node;
-	}
-	
-        # Recurse and examine each child, in turn.
-	print( "   search kids\n"
-	       . join( "",
-		       map sprintf( "      %s %s=(0x%07x)\n",
-				    B::class( $_ ),
-				    $_->oldname,
-				    $$_ ),
-		       @new_kids ) )
-	    if $DEBUG and @new_kids;
-	
-	for ( @new_kids )
-	{
-	    my $x = $search_kids->( $_ );
-	    return $x if $x;
-	}
-	
-        # Not in this subtree.
-        $deadend{$node}++;
-        return undef;
-    };
-    my $start = $target;
-    
-    # Skip to the farthest sibling and make a list of each with the most
-    # recent at the beginning of the list.
-    
-    # I am planning ahead for the day when it turns out that the parent
-    # cannot be found in the last sibling somewhere. Maybe it is just a
-    # null? I would like to be able to back track up the tree to find a
-    # ->next node that will bring us to northeast of (or even better,
-    # directly to) the parent.
-    my @siblings = $start;
-    while ( $start and
-	    ${$start->sibling} )
+    # When does a CV not fulfill ->ARRAY->ARRAY? Some time during
+    # initialization?
+    if (    $cv->can('PADLIST')
+        and $cv->PADLIST->can('ARRAY')
+        and $cv->PADLIST->ARRAY->can('ARRAY') )
     {
-	$start = $start->sibling;
-	unshift @siblings, $start;
-	printf( "->sibling %s %s=(0x%07x)\n",
-		class($start)||'null',
-		$start->oldname,
-		$$start )
-	    if $DEBUG;
+        push @anon_subs,
+            map( (
+                'CV' eq class($_)
+                ? { root  => $_->ROOT,
+                    start => $_->START
+                    }
+                : ()
+            ),
+            $cv->PADLIST->ARRAY->ARRAY );
     }
-    
-    # Now search each sibling as noted from above.
-    for $start ( @siblings )
-    {
-	my $next = $start;
-	while ( $$next )
-	{
-	    printf( "->next %s %s=(0x%07x)\n",
-		    B::class( $next ),
-		    $next->oldname,
-		    $$next )
-		if $DEBUG;
-	
-	    my $result = $search_kids->( $next );
-	    return $result if $result;
-	}
-	continue
-	{
-	    $next = $next->next;
-	}
-    }
-    
-    # Having reached here... I give up?
-    undef;
+
+    return unless ( ( my $start = $cv->START )
+        and ( my $root = $cv->ROOT ) );
+
+    $starts{$name} = $start;
+    $roots{$name}  = $root;
+
+    #    return TRUE;
+    return;
 }
 
-=item C<< $op->previous >>
+# sub B::SPECIAL::_B_Utils_init_sub_cache {
+#
+#     # This is a callback function called from B::Utils::_init via
+#     # B::walksymtable.
+#
+#     # JJ: I'm not sure why this callback function exists.
+#
+#     return TRUE;
+# }
 
-Like C<< $op->next >>, but not quite.
-
-=cut
-
-sub B::OP::previous {
-    my $target = shift;
-    my $start = $target;
-    my (%deadend, $search);
-    $search = sub {
-        my $node = shift || die;
-        return $search->(find_parent($node)) if exists $deadend{$node};
-        return $node if $node->{next}==$target;
-        # Recurse
-        my $x;
-        ($_->next == $target and return $_) for $node->kids;
-        defined($x = $search->($_)) and return $x for $node->{kids};
- 
-        # Not in this subtree.
-        $deadend{$node}++;
-        return undef;
-   };
-   my $result;
-   $result = $search->($start) and return $result
-        while $start = $start->next;
-}
-
-=item walkoptree_simple($op, \&callback, [$data])
+=item C<walkoptree_simple($op, \&callback, [$data])>
 
 The C<B> module provides various functions to walk the op tree, but
 they're all rather difficult to use, requiring you to inject methods
 into the C<B::OP> class. This is a very simple op tree walker with
 more expected semantics.
 
-All the C<walk> functions set C<B::Utils::file> and C<B::Utils::line>
-to the appropriate values of file and line number in the program
-being examined.
+All the C<walk> functions set C<$B::Utils::file>, C<$B::Utils::line>,
+and C<$B::Utils::sub> to the appropriate values of file, line number,
+and sub name in the program being examined.
 
 =cut
 
-our ($file, $line) = ("__none__",0);
+$file = '__none__';
+$line = 0;
+$sub  = undef;
 
 sub walkoptree_simple {
-    my ($op, $callback, $data) = @_;
-    ($file, $line) = ($op->file, $op->line) if $op->isa("B::COP");
-    $callback->($op,$data);
-    if ($$op && ($op->flags & OPf_KIDS)) {
-        my $kid;
-        for ($kid = $op->first; $$kid; $kid = $kid->sibling) {
-            walkoptree_simple($kid, $callback, $data);
-        }
-    }
+    $file = '__none__';
+    $line = 0;
+
+    &_walkoptree_simple;
+
+    return TRUE;
 }
 
-=item walkoptree_filtered($op, \&filter, \&callback, [$data])
+sub _walkoptree_simple {
+    my ( $op, $callback, $data ) = @_;
+
+    if ( ref $op and $op->isa("B::COP") ) {
+        $file = $op->file;
+        $line = $op->line;
+    }
+
+    $callback->( $op, $data );
+    if (    ref $op
+        and $$op
+        and $op->flags & OPf_KIDS )
+    {
+        _walkoptree_simple( $_, $callback, $data ) for $op->kids;
+    }
+
+    return;
+
+}
+
+=item C<walkoptree_filtered($op, \&filter, \&callback, [$data])>
 
 This is much the same as C<walkoptree_simple>, but will only call the
-callback if the C<filter> returns true. The C<filter> is passed the 
-op in question as a parameter; the C<opgrep> function is fantastic 
+callback if the C<filter> returns true. The C<filter> is passed the
+op in question as a parameter; the C<opgrep> function is fantastic
 for building your own filters.
 
 =cut
 
 sub walkoptree_filtered {
-    my ($op, $filter, $callback, $data) = @_;
-    ($file, $line) = ($op->file, $op->line) if $op->isa("B::COP");
-    $callback->($op,$data) if $filter->($op);
-    if ($$op && ($op->flags & OPf_KIDS)) {
-        my $kid;
-        for ($kid = $op->first; $$kid; $kid = $kid->sibling) {
-            walkoptree_filtered($kid, $filter, $callback, $data);
-        }
-    }
+    $file = '__none__';
+    $line = 0;
+
+    &_walkoptree_filtered;
+
+    return TRUE;
 }
 
-=item walkallops_simple(\&callback, [$data])
+sub _walkoptree_filtered {
+    my ( $op, $filter, $callback, $data ) = @_;
+
+    if ( $op->isa("B::COP") ) {
+        $file = $op->file;
+        $line = $op->line;
+    }
+
+    $callback->( $op, $data ) if $filter->($op);
+
+    if (    ref $op
+        and $$op
+        and $op->flags & OPf_KIDS )
+    {
+
+        my $kid = $op->first;
+        while ( ref $kid
+            and $$kid )
+        {
+            _walkoptree_filtered( $kid, $filter, $callback, $data );
+
+            $kid = $kid->sibling;
+        }
+    }
+
+    return TRUE;
+}
+
+=item C<walkallops_simple(\&callback, [$data])>
 
 This combines C<walkoptree_simple> with C<all_roots> and C<anon_subs>
 to examine every op in the program. C<$B::Utils::sub> is set to the
@@ -360,137 +647,430 @@ the main program and C<__ANON__> if you're in an anonymous subroutine.
 
 =cut
 
-our $sub;
-
 sub walkallops_simple {
-    my ($callback, $data) = @_;
-    _init();
-    for $sub (keys %roots) {
-        walkoptree_simple($roots{$sub}, $callback, $data);
-    }
-    $sub = "__ANON__";
-    for (@anon_subs) {
-        walkoptree_simple($_->{root}, $callback, $data);
-    }
+    $sub = undef;
+
+    &_walkallops_simple;
+
+    return TRUE;
 }
 
-=item walkallops_filtered(\&filter, \&callback, [$data])
+sub _walkallops_simple {
+    my ( $callback, $data ) = @_;
+
+    _init();
+
+    walkoptree_simple( $_, $callback, $data ) for values %roots;
+
+    $sub = "__ANON__";
+    walkoptree_simple( $_->{root}, $callback, $data ) for @anon_subs;
+
+    return TRUE;
+}
+
+=item C<walkallops_filtered(\&filter, \&callback, [$data])>
 
 Same as above, but filtered.
 
 =cut
 
 sub walkallops_filtered {
-    my ($filter, $callback, $data) = @_;
+    $sub = undef;
+
+    &_walkallops_filterd;
+
+    return TRUE;
+}
+
+sub _walkallops_filtered {
+    my ( $filter, $callback, $data ) = @_;
+
     _init();
-    for $sub (keys %roots) {
-        walkoptree_filtered($roots{$sub}, $filter, $callback, $data);
-    }
+
+    walkoptree_filtered( $_, $filter, $callback, $data ) for values %roots;
+
     $sub = "__ANON__";
-    for (@anon_subs) {
-        walkoptree_filtered($_->{root}, $filter, $callback, $data);
-    }
+
+    walkoptree_filtered( $_->{root}, $filter, $callback, $data )
+        for @anon_subs;
+
+    return TRUE;
 }
 
-=item carp(@args) 
+=item C<opgrep(\%conditions, @ops)>
 
-=item croak(@args) 
-
-Warn and die, respectively, from the perspective of the position of the op in
-the program. Sounds complicated, but it's exactly the kind of error reporting
-you expect when you're grovelling through an op tree.
-
-=cut
-
-sub _preparewarn {
-    my $args = join '', @_;
-    $args = "Something's wrong " unless $args;
-    $args .= " at $file line $line.\n" unless substr($args, length($args) -1) eq "\n";
-}
-
-sub carp  (@) { CORE::die(preparewarn(@_)) }
-sub croak (@) { CORE::warn(preparewarn(@_)) }
-
-=item opgrep(\%conditions, @ops)
-
-Returns the ops which meet the given conditions. The conditions should be
-specified like this:
+Returns the ops which meet the given conditions. The conditions should
+be specified like this:
 
     @barewords = opgrep(
                         { name => "const", private => OPpCONST_BARE },
                         @ops
                        );
 
+where the first argument to C<opgrep()> is the condition to be matched against the
+op structure. We'll henceforth refer to it as an op-pattern.
+
 You can specify alternation by giving an arrayref of values:
 
     @svs = opgrep ( { name => ["padsv", "gvsv"] }, @ops)
 
-And you can specify inversion by making the first element of the arrayref
-a "!". (Hint: if you want to say "anything", say "not nothing": C<["!"]>)
+And you can specify inversion by making the first element of the
+arrayref a "!". (Hint: if you want to say "anything", say "not
+nothing": C<["!"]>)
 
-You may also specify the conditions to be matched in nearby ops.
+You may also specify the conditions to be matched in nearby ops as nested patterns.
 
     walkallops_filtered(
-        sub { opgrep( {name => "exec", 
+        sub { opgrep( {name => "exec",
                        next => {
                                  name    => "nextstate",
                                  sibling => { name => [qw(! exit warn die)] }
                                }
                       }, @_)},
-        sub { 
-              carp("Statement unlikely to be reached"); 
+        sub {
+              carp("Statement unlikely to be reached");
               carp("\t(Maybe you meant system() when you said exec()?)\n");
         }
     )
 
 Get that?
 
-Here are the things that can be tested:
+Here are the things that can be tested in this way:
 
         name targ type seq flags private pmflags pmpermflags
         first other last sibling next pmreplroot pmreplstart pmnext
 
+Additionally, you can use the C<kids> keyword with an array reference
+to match the result of a call to C<$op-E<gt>kids()>. An example use is
+given in the documentation for C<op_or> below.
+
+For debugging, you can have many properties of an op that is currently being
+matched against a given condition dumped to STDERR
+by specifying C<dump => 1> in the condition's hash reference.
+
+If you match a complex condition against an op tree, you may want to extract
+a specific piece of information from the tree if the condition matches.
+This normally entails manually walking the tree a second time down to
+the op you wish to extract, investigate or modify. Since this is tedious
+duplication of code and information, you can specify a special property
+in the pattern of the op you wish to extract to capture the sub-op
+of interest. Example:
+
+  my ($result) = opgrep(
+    { name => "exec",
+      next => { name    => "nextstate",
+                sibling => { name => [qw(! exit warn die)]
+                             capture => "notreached",
+                           },
+              }
+    },
+    $root_op
+  );
+  
+  if ($result) {
+    my $name = $result->{notreached}->name; # result is *not* the root op
+    carp("Statement unlikely to be reached (op name: $name)");
+    carp("\t(Maybe you meant system() when you said exec()?)\n");
+  }
+  
+While the above is a terribly contrived example, consider the win for a
+deeply nested pattern or worse yet, a pattern with many disjunctions.
+If a C<capture> property is found anywhere in
+the op pattern, C<opgrep()> returns an unblessed hash reference on success
+instead of the tested op. You can tell them apart using L<Scalar::Util>'s
+C<blessed()>. That hash reference contains all captured ops plus the
+tested root up as the hash entry C<$result-E<gt>{op}>. Note that you cannot
+use this feature with C<walkoptree_filtered> since that function was
+specifically documented to pass the tested op itself to the callback.
+
+You cannot capture disjunctions, but that doesn't really make sense anyway.
+
+=item C<opgrep( \@conditions, @ops )>
+
+Same as above, except that you don't have to chain the conditions
+yourself.  If you pass an array-ref, opgrep will chain the conditions
+for you using C<next>. 
+The conditions can either be strings (taken as op-names), or
+hash-refs, with the same testable conditions as given above.
+
 =cut
 
 sub opgrep {
-    my ($cref, @ops) = @_;
-    my %conds = %$cref;
-    my @rv = ();
-    my $o;
-    OPLOOP: for $o (@ops) {
-        # First, let's skim off ops of the wrong type.
-        for (qw(first other last pmreplroot pmreplstart pmnext pmflags pmpermflags)) {
-            next OPLOOP if exists $conds{$_} and !$o->can($_);
-        }
+    return unless defined wantarray;
 
-        for my $test (qw(name targ type seq flags private pmflags pmpermflags)) {
-            next unless exists $conds{$test};
-            next OPLOOP unless ref $o and $o->can($test);
-	    if (!ref $conds{$test}) {
-	       next OPLOOP if $o->$test ne $conds{$test};
-	    } else {
-		    if ($conds{$test}[0] eq "!") {
-			my @conds = @{$conds{$test}}; shift @conds;
-			next OPLOOP if grep {$o->$test eq $_} @conds;
-		    } else {
-			next OPLOOP unless grep {$o->$test eq $_} @{$conds{$test}};
-		    }
-	    }
-        }
+    my $conds_ref = shift;
+    $conds_ref = _opgrep_helper($conds_ref)
+        if 'ARRAY' eq ref $conds_ref;
 
-        for my $neighbour (qw(first other last sibling next pmreplroot pmreplstart pmnext)) {
-            next unless exists $conds{$neighbour};
-            # We know it can, because we tested that above
-            # Recurse, recurse!
-            next OPLOOP unless opgrep($conds{$neighbour}, $o->$neighbour);
-        }
+    my @grep_ops;
 
-        push @rv, $_;
+    # Check whether we're dealing with a disjunction of patterns:
+    my @conditions = exists($conds_ref->{disjunction}) ? @{$conds_ref->{disjunction}} : ($conds_ref);
+
+OP:
+    for my $op (@_) {
+        next unless ref $op and $$op;
+
+        # only one condition by default, but if we have a disjunction, there will
+        # be several
+CONDITION:
+        foreach my $condition (@conditions) {
+            # nested disjunctions? naughty user!
+            # $foo or ($bar or $baz) is $foo or $bar or $baz!
+            # ==> flatten
+            if (exists($condition->{disjunction})) {
+              push @conditions, @{$condition->{disjunction}};
+              next CONDITION;
+            }
+
+            # structure to hold captured information
+            my $capture = {};
+
+            # Debugging aid
+            if (exists $condition->{'dump'}) {
+                ($op->can($_)
+                or next)
+                and warn "$_: " . $op->$_ . "\n"
+                for
+                qw( first other last pmreplroot pmreplstart pmnext pmflags pmpermflags name targ type seq flags private kids);
+            }
+
+            # special disjunction case. undef in a disjunction => (child) does not exist
+            if (not defined $condition) {
+                return TRUE if not defined $op and not wantarray();
+                return();
+            }
+
+            # save the op if the user wants flat access to it
+            if ($condition->{capture}) {
+                $capture->{ $condition->{capture} } = $op;
+            }
+
+            # First, let's skim off ops of the wrong type. If they require
+            # something that isn't implemented for this kind of object, it
+            # must be wrong. These tests are cheap
+            exists $condition->{$_}
+                and !$op->can($_)
+                and next
+                for
+                qw( first other last pmreplroot pmreplstart pmnext pmflags pmpermflags name targ type seq flags private kids);
+
+#            # Check alternations
+#            (   ref( $condition->{$_} )
+#                ? ( "!" eq $condition->{$_}[0]
+#                    ? ()
+#                    : ()
+#                    )
+#                : ( $op->can($_) && $op->$_ eq $condition->{$_} or next )
+#                )
+#                for qw( name targ type seq flags private pmflags pmpermflags );
+
+            for my $test (
+                qw(name targ type seq flags private pmflags pmpermflags))
+            {
+                next unless exists $condition->{$test};
+                my $val = $op->$test;
+
+                if ( 'ARRAY' eq ref $condition->{$test} ) {
+
+                    # Test a list of valid/invalid values.
+                    if ( '!' eq $condition->{$test}[0] ) {
+
+                        # Fail if any entries match.
+                        $_ ne $val
+                            or next CONDITION 
+                            for @{ $condition->{$test} }
+                            [ 1 .. $#{ $condition->{$test} } ];
+                    }
+                    else {
+
+                        # Fail if no entries match.
+                        my $okay = 0;
+                        
+                        $_ eq $val and $okay = 1, last 
+                            for @{ $condition->{$test} };
+
+                        next CONDITION if not $okay;
+                    }
+                }
+                elsif ( 'CODE' eq ref $condition->{$test} ) {
+                    local $_ = $val;
+                    $condition->{$test}($op)
+                        or next CONDITION;
+                }
+                else {
+
+                    # Test a single value.
+                    $condition->{$test} eq $op->$test
+                        or next CONDITION;
+                }
+            } # end for test
+
+            # We know it ->can because that was tested above. It is an
+            # error to have anything in this list of tests that isn't
+            # tested for ->can above.
+            foreach (
+              qw( first other last sibling next pmreplroot pmreplstart pmnext )
+              ) {
+                next unless exists $condition->{$_};
+                my ($result) = opgrep( $condition->{$_}, $op->$_ );
+                next CONDITION if not $result;
+
+                if (not blessed($result)) {
+                    # copy over the captured data/ops from the recursion
+                    $capture->{$_} = $result->{$_} foreach keys %$result;
+                }
+            }
+  
+            # Apply all kids conditions. We $op->can(kids) (see above).
+            if (exists $condition->{kids}) {
+                my $kidno = 0;
+                my $kidconditions = $condition->{kids};
+
+                next CONDITION if not @{$kidconditions} == @{$condition->{kids}};
+
+                foreach my $kid ($op->kids()) {
+                    # if you put undef in your kid conditions list, we skip one kid
+                    next if not defined $kidconditions->[$kidno];
+
+                    my ($result) = opgrep( $kidconditions->[$kidno++], $kid );
+                    next CONDITION if not $result;
+                    
+                    if (not blessed($result)) {
+                        # copy over the captured data/ops from the recursion
+                        $capture->{$_} = $result->{$_} foreach keys %$result;
+                    }
+                }
+            }
+
+            # Attempt to quit early if possible.
+            if (wantarray) {
+                if (keys %$capture) {
+                    # save all captured information and the main op
+                    $capture->{op} = $op;
+                    push @grep_ops, $capture;
+                }
+                else {
+                    # save main op
+                    push @grep_ops, $op;
+                }
+                last;
+            }
+            elsif ( defined wantarray ) {
+                return TRUE;
+            }
+        } # end for @conditions
+        # end of conditions loop should be end of op test
     }
-    return @rv;
+
+    # Either this was called in list context and then I want to just
+    # return everything possible or this is in scalar/void context and
+    # @grep_ops will be empty and thus "false."
+    return @grep_ops;
 }
 
-1;
+sub _opgrep_helper {
+    my @conds =
+        map ref() ? {%$_} : { name => $_ }, @{ $_[0] };
+
+    # Wire this into a list of entries, all ->next
+    for ( 1 .. $#conds ) {
+        $conds[ $_ - 1 ]{next} = $conds[$_];
+    }
+
+    # This is a linked list now so I can return only the head.
+    return $conds[0];
+}
+
+=item C<op_or( @conditions )>
+
+Unlike the chaining of conditions done by C<opgrep> itself if there are multiple
+conditions, this function creates a disjunction (C<$cond1 || $cond2 || ...>) of
+the conditions and returns a structure (hash reference) that can be passed to
+opgrep as a single condition.
+
+Example:
+
+  my $sub_structure = {
+    name => 'helem',
+    first => { name => 'rv2hv', },
+    'last' => { name => 'const', },
+  };
+  
+  my @ops = opgrep( {
+      name => 'leavesub',
+      first => {
+        name => 'lineseq',
+        kids => [,
+          { name => 'nextstate', },
+          op_or(
+            {
+              name => 'return',
+              first => { name => 'pushmark' },
+              last => $sub_structure,
+            },
+            $sub_structure,
+          ),
+        ],
+      },
+  }, $op_obj );
+
+This example matches the code in a typical simplest-possible
+accessor method (albeit not down to the last bit):
+
+  sub get_foo { $_[0]->{foo} }
+
+But by adding an alternation
+we can also match optional op layers. In this case, we optionally
+match a return statement, so the following implementation is also
+recognized:
+
+  sub get_foo { return $_[0]->{foo} }
+
+Essentially, this is syntactic sugar for the following structure
+recognized by C<opgrep()>:
+
+  { disjunction => [@conditions] }
+
+=cut
+
+sub op_or {
+  my @conditions = @_;
+  return({ disjunction => [@conditions] });
+}
+
+sub op_pattern_match {
+  my $op = shift;
+  my $pattern = shift;
+
+  my $ret = {};
+
+  
+  return $ret;
+}
+
+=item C<carp(@args)>
+
+=item C<croak(@args)>
+
+Warn and die, respectively, from the perspective of the position of
+the op in the program. Sounds complicated, but it's exactly the kind
+of error reporting you expect when you're grovelling through an op
+tree.
+
+=cut
+
+sub carp (@)  { CORE::warn( _preparewarn(@_) ) }
+sub croak (@) { CORE::die( _preparewarn(@_) ) }
+
+sub _preparewarn {
+    my $args = join '', @_;
+    $args = "Something's wrong " unless $args;
+    if ( "\n" ne substr $args, -1, 1 ) {
+        $args .= " at $file line $line.\n";
+    }
+    return $args;
+}
 
 =back
 
@@ -498,18 +1078,42 @@ sub opgrep {
 
 None by default.
 
+=head2 XS EXPORT
+
+This modules uses L<ExtUtils::Depends> to export some useful functions
+for XS modules to use.  To use those, include in your Makefile.PL:
+
+  my $pkg = ExtUtils::Depends->new("Your::XSModule", "B::Utils");
+  WriteMakefile(
+    ... # your normal makefile flags
+    $pkg->get_makefile_vars,
+  );
+
+Your XS module can now include F<BUtils.h> and F<BUtils_op.h>.  To see
+document for the functions provided, use:
+
+  perldoc -m B::Utils::Install::BUtils.h
+  perldoc -m B::Utils::Install::BUtils_op.h
+
 =head1 AUTHOR
 
-Simon Cozens, C<simon@cpan.org>
+Originally written by Simon Cozens, C<simon@cpan.org>
+Maintained by Joshua ben Jore, C<jjore@cpan.org>
 
-=head1 TODO
+Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
+Chia-liang Kao.
 
-I need to add more Fun Things, and possibly clean up some parts where
-the (previous/parent) algorithm has catastrophic cases, but it's more
-important to get this out right now than get it right.
+=head1 LICENSE
+
+This module is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
 L<B>, L<B::Generate>.
 
 =cut
+
+"Wow, you're pretty uptight for a guy who worships a multi-armed,
+hermaphrodite embodiment of destruction who has a fetish for vaguely
+phallic shaped headgear.";

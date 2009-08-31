@@ -1,5 +1,62 @@
 Revision history for Perl extension B::Utils.
 
+0.05_09 Sat Apr 6 16:09:.. CEST 2008
+    - Allow for nested disjunctions in opgrep patterns.
+
+0.05_08 Sat Apr 5 22:58:.. CEST 2008
+    - I-am-a-muppet.
+    - Removed spurious use of Data::Compare.
+
+0.05_07 Tue Apr 4 18:15:.. CEST 2008
+    - opgrep() can now capture sub-ops so if you plan to
+      extract information from or modify a deeply nested
+      op-tree, you don't have to do the tree-walking
+      yourself.
+
+0.05_06 Tue Apr 3 18:15:.. CEST 2008
+    - Add the as_opgrep_pattern() method to B::OP for
+      dumping op trees as patterns for matching with opgrep.
+    - Add warnings.
+    - Documentation fixes.
+
+0.05_05 Tue Apr  1 18:15:.. CEST 2008
+    - Fix POD error and update README.
+
+0.05_04 Tue Apr  1 18:10:.. CEST 2008
+    - Fix bug in opgrep() alternations.
+    - Add the "kids" keyword to the opgrep syntax.
+    - Add the "dump" keyword to the opgrep syntax for debugging.
+    - Fixed the Change log (yes, this file) for the last
+      version since the comment on an opgrep() change was
+      incorrect.
+
+0.05_03 Sun Mar 30 11:13:.. CEST 2008
+    - Fix various bugs in opgrep(). Did that work in 0.05_02 at all?
+    - Introduce op_or() to match one of many possible conditions.
+    - Add a longer example to opgrep() documentation.
+    - Fix POD markup.
+    - Add a clear license statement to the docs.
+    - Use a string as version -- otherwise it might not be flagged
+      as a development release!
+
+0.05_02 Thu Dec  1 ..:..:.. ... 2005
+    - ->parent works for all tests now.
+    - Added more tests.
+
+0.05_01 Fri Oct 28 23:00:00 CST 2005
+    - Added tests. That's the focus of my work right now.
+    - opgrep() now acceps \@conditions
+      assertions may be code references
+    - Lots of changes to ->parent. This is in progress. It fails when
+      the parent of a node does not exist in the execution pathway of
+      a program. The unused null() ops rooting some conditionals, etc.
+
+      This function fails tests.
+    - Added a function recalc_sub_cache so anon_subs, all_starts, and
+      all_roots' cache of functions can be cleared.
+    - Added functions ->siblings, ->ancestors, ->descendants, and
+      _uniq_ops.
+
 0.05 Thu Nov 25 22:23:00 CST 2004
     - My birthday
     - Fixed infinite loop in ->parent

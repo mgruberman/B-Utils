@@ -1,11 +1,28 @@
+use lib 'inc';
+require ExtUtils::Depends;
+
+my $pkg = ExtUtils::Depends->new('B::Utils');
+
+$pkg->install('BUtils.h');
+
+$pkg->add_xs("Utils.xs", "OP.xs");
+
+$pkg->add_pm( 'lib/B/Utils.pm' => '$(INST_LIB)/B/Utils.pm',
+              'lib/B/Utils/OP.pm' => '$(INST_LIB)/B/Utils/OP.pm' );
+
+$pkg->add_typemaps("typemap");
+
+$pkg->save_config('build/IFiles.pm');
+
 use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+
 WriteMakefile(
-    'NAME'		=> 'B::Utils',
-    'VERSION_FROM'	=> 'lib/B/Utils.pm', # finds $VERSION
-    'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
-    ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM => 'lib/B/Utils.pm', # retrieve abstract from module
-       AUTHOR     => 'Joshua b. Jore <jjore@cpan.org>') : ()),
+    NAME          => 'B::Utils',
+    VERSION_FROM  => 'lib/B/Utils.pm',
+    PREREQ_PM     => {},
+    ABSTRACT_FROM => 'lib/B/Utils.pm',
+    AUTHOR        => 'Joshua b. Jore <jjore@cpan.org>',
+    LICENSE       => 'perl',
+    test          => { TESTS => 't/*.t t/*/*.t' },
+    $pkg->get_makefile_vars,
 );
