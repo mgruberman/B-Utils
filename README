@@ -1,0 +1,82 @@
+B/Utils version 0.01
+====================
+
+NAME
+    B::Utils - Helper functions for op tree manipulation
+
+SYNOPSIS
+      use B::Utils;
+
+FUNCTIONS
+    "all_starts"
+    "all_roots"
+       Returns a hash of all of the starting ops or root ops of optrees,
+       keyed to subroutine name; the optree for main program is simply keyed
+       to "main".
+
+       Note: Certain "dangerous" stashes are not scanned for subroutines:
+       the list of such stashes can be found in "@B::Utils::bad_stashes".
+       Feel free to examine and/or modify this to suit your needs. The
+       intention is that a simple program which uses no modules other than
+       "B" and "B::Utils" would show no addition symbols.
+
+       This does not return the details of ops in anonymous subroutines
+       compiled at compile time. For instance, given
+
+           $a = sub { ... };
+
+       the subroutine will not appear in the hash. This is just as well,
+       since they're anonymous... If you want to get at them, use...
+
+    "anon_subs()"
+       This returns an array of hash references. Each element has the keys
+       "start" and "root". These are the starting and root ops of all of the
+       anonymous subroutines in the program.
+
+    "$op->oldname"
+       Returns the name of the op, even if it is currently optimized to
+       null. This helps you understand the stucture of the op tree.
+
+    "$op->kids"
+       Returns an array of all this op's non-null children.
+
+    "$op->parent"
+       Returns the parent node in the op tree, if possible. Currently
+       "possible" means "if the tree has already been optimized"; that is,
+       if we're during a "CHECK" block. (and hence, if we have valid "next"
+       pointers.)
+
+       In the future, it may be possible to search for the parent before we
+       have the "next" pointers in place, but it'll take me a while to
+       figure out how to do that.
+
+    "$op->previous"
+       Like "$op->next", but not quite.
+
+AUTHOR
+       Simon Cozens, "simon@cpan.org"
+
+TODO
+       I need to add more Fun Things, and possibly clean up some parts where
+       the (previous/parent) algorithm has catastrophic cases, but it's more
+       important to get this out right now than get it right.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module does *not* require anything that's not in core.
+
+COPYRIGHT AND LICENCE
+
+AL & GPL. You know the score.
+
+Copyright (C) 2001 Simon Cozens
+
