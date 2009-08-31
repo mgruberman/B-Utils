@@ -1,3 +1,4 @@
+use 5.006;
 use strict;
 my $ExtUtils_Depends_required = 0.302; #minimum version that works on Win32+gcc
 eval {
@@ -40,6 +41,12 @@ WriteMakefile(
     MIN_PERL_VERSION => 5.006,
     CONFIGURE_REQUIRES => {
         'ExtUtils::Depends' => $ExtUtils_Depends_required,
+    },
+    META_MERGE => {
+      resources => {
+        repository => 'http://github.com/jbenjore/B-Utils/tree',
+      },
+      keywords => ['op tree','perl internals'],
     },
     test          => { TESTS => 't/*.t t/*/*.t' },
     $pkg->get_makefile_vars,
