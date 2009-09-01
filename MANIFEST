@@ -9,8 +9,6 @@ MANIFEST			This list of files
 META.yml
 OP.xs
 README
-t/00signature.t
-t/01pod.t
 t/10use.t
 t/11export.t
 t/utils/20all_starts.t
@@ -33,4 +31,6 @@ t/utils/50carp.t
 t/utils/51croak.t
 typemap
 Utils.xs
+xt/signature.t
+xt/pod.t
 ppport.h
