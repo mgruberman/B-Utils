@@ -20,6 +20,12 @@ use Scalar::Util qw( weaken blessed );
 
 B::Utils - Helper functions for op tree manipulation
 
+=cut
+
+
+# NOTE: The pod/code version here and in README are computer checked
+# by xt/version.t. Keep them in sync.
+
 =head1 VERSION
 
 0.07
@@ -27,6 +33,8 @@ B::Utils - Helper functions for op tree manipulation
 =cut
 
 $VERSION = '0.07';
+
+
 
 use base 'DynaLoader';
 bootstrap B::Utils $VERSION;
