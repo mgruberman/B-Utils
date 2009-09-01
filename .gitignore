@@ -9,3 +9,5 @@ Utils.o
 dll.base
 dll.exp
 pm_to_blib
+*~
+.#*
