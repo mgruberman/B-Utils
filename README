@@ -2,8 +2,7 @@ NAME
     B::Utils - Helper functions for op tree manipulation
 
 VERSION
-    0.05_07 - This is a dev version and is part of an effort to add tests,
-    functionality, and merge a fork from Module::Info.
+    0.07
 
 SYNOPSIS
       use B::Utils;
@@ -215,6 +214,9 @@ EXPORTABLE FUNCTIONS
         "walkoptree_filtered" since that function was specifically
         documented to pass the tested op itself to the callback.
 
+        You cannot capture disjunctions, but that doesn't really make sense
+        anyway.
+
     "opgrep( \@conditions, @ops )"
         Same as above, except that you don't have to chain the conditions
         yourself. If you pass an array-ref, opgrep will chain the conditions
@@ -281,11 +283,28 @@ EXPORTABLE FUNCTIONS
   EXPORT
     None by default.
 
+  XS EXPORT
+    This modules uses ExtUtils::Depends to export some useful functions for
+    XS modules to use. To use those, include in your Makefile.PL:
+
+      my $pkg = ExtUtils::Depends->new("Your::XSModule", "B::Utils");
+      WriteMakefile(
+        ... # your normal makefile flags
+        $pkg->get_makefile_vars,
+      );
+
+    Your XS module can now include BUtils.h and BUtils_op.h. To see document
+    for the functions provided, use:
+
+      perldoc -m B::Utils::Install::BUtils.h
+      perldoc -m B::Utils::Install::BUtils_op.h
+
 AUTHOR
     Originally written by Simon Cozens, "simon@cpan.org" Maintained by
     Joshua ben Jore, "jjore@cpan.org"
 
-    Contributions from Mattia Barbon, Jim Cromie, and Steffen Mueller.
+    Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
+    Chia-liang Kao.
 
 LICENSE
     This module is free software; you can redistribute it and/or modify it
