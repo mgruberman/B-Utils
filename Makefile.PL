@@ -1,3 +1,4 @@
+#!perl
 use 5.006;
 use strict;
 my $ExtUtils_Depends_required = 0.302; #minimum version that works on Win32+gcc
