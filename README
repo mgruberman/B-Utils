@@ -2,7 +2,7 @@ NAME
     B::Utils - Helper functions for op tree manipulation
 
 VERSION
-    0.07
+    0.08
 
 SYNOPSIS
       use B::Utils;
