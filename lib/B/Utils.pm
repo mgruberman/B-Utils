@@ -1108,7 +1108,7 @@ Originally written by Simon Cozens, C<simon@cpan.org>
 Maintained by Joshua ben Jore, C<jjore@cpan.org>
 
 Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
-Chia-liang Kao.
+Chia-liang Kao, Alexandr Ciornii.
 
 =head1 LICENSE
 
