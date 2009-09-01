@@ -1,5 +1,12 @@
 Revision history for Perl extension B::Utils.
 
+0.08 Tue Sep 01 08:29:00 PDT 2009
+    - Add xt/version.t to keep all our version #s in sync
+    - Regenerate README
+    - Add disabled Test::PPPort
+    - Move author tests to xt/
+    - declare dep on 5.6 for installation
+    - Add .gitignore
     - compatibility layer in Makefile.PL (Alexandr Ciornii)
     - use configure_requires, good error messages in case of missing modules (Alexandr Ciornii)
     - correct prereqs (Alexandr Ciornii)
@@ -8,6 +15,7 @@ Revision history for Perl extension B::Utils.
 0.07 Tue Nov 11 23:05:.. PDT 2008
     - Fixed a refactoring error in walkallops_simple. walkallops* was broken.
     - Avoided base.pm because that library is kind of nasty
+    - b94bf3bd96bc73320ebcc2def55bdec0dbd28663
 
 0.06 ???
     - Ask CLKAO
@@ -68,13 +76,16 @@ Revision history for Perl extension B::Utils.
       all_roots' cache of functions can be cleared.
     - Added functions ->siblings, ->ancestors, ->descendants, and
       _uniq_ops.
+    - 9c7916e3748382aed046612e3100d92d8127b0c2
 
 0.05 Thu Nov 25 22:23:00 CST 2004
     - My birthday
     - Fixed infinite loop in ->parent
+    - ea3df10542f446b1afb9fa98c0a4e49896deb3ca
 
 0.04 Thu May  2 21:56:03 BST 2002
     - Various fixes to walkoptrees stuff.
+    - 9452f39d9b5968dacf85f6be8ba3c30e0d0d19af
 
 0.03  Wed Dec 12 22:20:07 GMT 2001
     - Fix up bad showstopper bug in ->kids()
@@ -83,8 +94,10 @@ Revision history for Perl extension B::Utils.
 0.02  Wed Aug 15 07:03:21 2001
     - Fix up some horribly glaring bugs
     - Add opgrep, walk*, croak and carp
+    - 3f02e781e732d610bed0f39e4654ce28bd651d02
 
 0.01  Mon Aug  6 22:07:26 2001
-	- original version; created by h2xs 1.21 with options
-		-XA -n B::Utils
+    - original version; created by h2xs 1.21 with options
+        -XA -n B::Utils
+    - b94bf3bd96bc73320ebcc2def55bdec0dbd28663
 
