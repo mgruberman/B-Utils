@@ -1,5 +1,9 @@
 Revision history for Perl extension B::Utils.
 
+0.09 Sun Dec 06 21:36:00 PDT 2009
+   - Add ExtUtils::CBuilder to prequisite list to hopefully quench any
+     bad builds attempted on perl-5.
+
 0.08 Tue Sep 01 08:29:00 PDT 2009
     - Add xt/version.t to keep all our version #s in sync
     - Regenerate README
