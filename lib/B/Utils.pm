@@ -28,11 +28,24 @@ B::Utils - Helper functions for op tree manipulation
 
 =head1 VERSION
 
-0.09
+0.10
 
 =cut
 
-$VERSION = '0.09';
+$VERSION = '0.10';
+
+
+
+=head1 INSTALLATION
+
+To install this module, run the following commands:
+
+    perl Makefile.PL
+    make
+    make test
+    make install
+
+=cut
 
 
 

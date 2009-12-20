@@ -2,7 +2,7 @@ NAME
     B::Utils - Helper functions for op tree manipulation
 
 VERSION
-    0.08
+    0.10
 
 SYNOPSIS
       use B::Utils;
@@ -300,11 +300,10 @@ EXPORTABLE FUNCTIONS
       perldoc -m B::Utils::Install::BUtils_op.h
 
 AUTHOR
-    Originally written by Simon Cozens, "simon@cpan.org" Maintained by
-    Joshua ben Jore, "jjore@cpan.org"
+    Originally written by Simon Cozens
 
     Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
-    Chia-liang Kao.
+    Chia-liang Kao, Alexandr Ciornii, Josh ben Jore.
 
 LICENSE
     This module is free software; you can redistribute it and/or modify it
