@@ -1,6 +1,42 @@
 #!perl
 use 5.006;
 use strict;
+
+# CONFIGURE_REQUIRES compatibility code begins
+{
+    my $recursive = @ARGV && $ARGV[0] eq 'recursive';
+    if ( $recursive ) {
+        shift @ARGV;
+    }
+
+    my $has_extutils_depends = eval qq{
+        use ExtUtils::Depends 0.302;
+        1;
+    };
+
+    if ( ! $has_extutils_depends ) {
+        if($recursive) {
+            die <<"end"
+ExtUtils::Depends 0.302 is required to configure this module. Please
+install it and re-run $0.
+end
+        }
+
+        package MY;
+        *top_targets = sub {
+            my $inherited = SUPER'top_targets{shift}@'_;
+            my $mpl_args = join " ", map qq["$_"], @ARGV;
+            $inherited =~ s{^(all\s*::.*?(\r?\n))}{
+                $1
+                . "\t\$(PERLRUN) Makefile.PL recursive $mpl_args$2"
+                . "\t\$(MAKE) \$(PASTHRU)$2"
+            }mex;
+            $inherited;
+        };
+    }
+}
+
+
 my $ExtUtils_Depends_required = 0.302; #minimum version that works on Win32+gcc
 eval {
 	require ExtUtils::Depends;
