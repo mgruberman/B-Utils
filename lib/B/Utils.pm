@@ -82,12 +82,12 @@ BEGIN {
     # Fake up a TRACE constant and set $TRACE_FH
     BEGIN { $^W = 0 }
     no warnings;
-    eval 'sub TRACE () {' . ( 0 + $ENV{B_UTILS_TRACE} ) . '}';
+    eval 'sub _TRACE () {' . ( 0 + $ENV{B_UTILS_TRACE} ) . '}';
     die $@ if $@;
     $TRACE_FH ||= \*STDOUT;
 }
-sub TRUE ()  { !!1 }
-sub FALSE () { !!0 }
+sub _TRUE ()  { !!1 }
+sub _FALSE () { !!0 }
 
 =head1 OP METHODS
 
@@ -294,7 +294,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##         unless ( defined $node ) {
 ##             # If I've been asked to search nothing, just return. The
 ##             # ->parent call might do this to me.
-##             return FALSE;
+##             return _FALSE;
 ##         }
 ##         elsif ( exists $deadend{$node} ) {
 ##             # If this node has been seen already, try again as its
@@ -322,8 +322,8 @@ Like C< $op-E<gt>next >, but not quite.
 ##           for @kids;
 ##
 ##         # Not in this subtree.
-##         $deadend{$node} = TRUE;
-##         return FALSE;
+##         $deadend{$node} = _TRUE;
+##         return _FALSE;
 ##     };
 ##
 ##     my $next = $target;
@@ -333,7 +333,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##           and return $result;
 ##     }
 ##
-##     return FALSE;
+##     return _FALSE;
 ## }
 
 =item C<$op-E<gt>stringify>
@@ -464,10 +464,10 @@ function.
 
 =cut
 
-my $subs_cached = FALSE;
+my $subs_cached = _FALSE;
 
 sub recalc_sub_cache {
-    $subs_cached = FALSE;
+    $subs_cached = _FALSE;
 
     %starts = %roots = @anon_subs = ();
 
@@ -490,9 +490,9 @@ sub _init_sub_cache {
         _B_Utils_init_sub_cache => sub {
 
             # Do not eat our own children!
-            $_[0] eq "$_\::" && return FALSE for @bad_stashes;
+            $_[0] eq "$_\::" && return _FALSE for @bad_stashes;
 
-            return TRUE;
+            return _TRUE;
         },
         ''
     );
@@ -510,7 +510,7 @@ sub _init_sub_cache {
         ),
         main_cv()->PADLIST->ARRAY->ARRAY );
 
-    $subs_cached = TRUE;
+    $subs_cached = _TRUE;
     return;
 }
 
@@ -555,7 +555,7 @@ sub B::GV::_B_Utils_init_sub_cache {
     $starts{$name} = $start;
     $roots{$name}  = $root;
 
-    #    return TRUE;
+    #    return _TRUE;
     return;
 }
 
@@ -566,7 +566,7 @@ sub B::GV::_B_Utils_init_sub_cache {
 #
 #     # JJ: I'm not sure why this callback function exists.
 #
-#     return TRUE;
+#     return _TRUE;
 # }
 
 =item C<walkoptree_simple($op, \&callback, [$data])>
@@ -592,7 +592,7 @@ sub walkoptree_simple {
 
     _walkoptree_simple( {}, @_ );
 
-    return TRUE;
+    return _TRUE;
 }
 
 sub _walkoptree_simple {
@@ -632,7 +632,7 @@ sub walkoptree_filtered {
 
     _walkoptree_filtered( {}, @_ );;
 
-    return TRUE;
+    return _TRUE;
 }
 
 sub _walkoptree_filtered {
@@ -660,7 +660,7 @@ sub _walkoptree_filtered {
         }
     }
 
-    return TRUE;
+    return _TRUE;
 }
 
 =item C<walkallops_simple(\&callback, [$data])>
@@ -677,7 +677,7 @@ sub walkallops_simple {
 
     &_walkallops_simple;
 
-    return TRUE;
+    return _TRUE;
 }
 
 sub _walkallops_simple {
@@ -690,7 +690,7 @@ sub _walkallops_simple {
     $sub = "__ANON__";
     walkoptree_simple( $_->{root}, $callback, $data ) for @anon_subs;
 
-    return TRUE;
+    return _TRUE;
 }
 
 =item C<walkallops_filtered(\&filter, \&callback, [$data])>
@@ -704,7 +704,7 @@ sub walkallops_filtered {
 
     &_walkallops_filterd;
 
-    return TRUE;
+    return _TRUE;
 }
 
 sub _walkallops_filtered {
@@ -719,7 +719,7 @@ sub _walkallops_filtered {
     walkoptree_filtered( $_->{root}, $filter, $callback, $data )
         for @anon_subs;
 
-    return TRUE;
+    return _TRUE;
 }
 
 =item C<opgrep(\%conditions, @ops)>
@@ -862,7 +862,7 @@ CONDITION:
 
             # special disjunction case. undef in a disjunction => (child) does not exist
             if (not defined $condition) {
-                return TRUE if not defined $op and not wantarray();
+                return _TRUE if not defined $op and not wantarray();
                 return();
             }
 
@@ -982,7 +982,7 @@ CONDITION:
                 last;
             }
             elsif ( defined wantarray ) {
-                return TRUE;
+                return _TRUE;
             }
         } # end for @conditions
         # end of conditions loop should be end of op test
@@ -1064,15 +1064,16 @@ sub op_or {
   return({ disjunction => [@conditions] });
 }
 
-sub op_pattern_match {
-  my $op = shift;
-  my $pattern = shift;
-
-  my $ret = {};
-
-  
-  return $ret;
-}
+# TODO
+# sub op_pattern_match {
+#   my $op = shift;
+#   my $pattern = shift;
+# 
+#   my $ret = {};
+# 
+#   
+#   return $ret;
+# }
 
 =item C<carp(@args)>
 

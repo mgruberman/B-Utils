@@ -42,7 +42,7 @@ WriteMakefile1(
         'ExtUtils::CBuilder' => 0,
     },
     ABSTRACT_FROM => 'lib/B/Utils.pm',
-    AUTHOR        => 'Joshua b. Jore <jjore@cpan.org>',
+    AUTHOR        => 'Josh Jore <jjore@cpan.org>',
     LICENSE       => 'perl',
     MIN_PERL_VERSION => 5.006,
     META_MERGE => {
