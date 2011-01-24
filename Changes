@@ -1,5 +1,9 @@
 Revision history for Perl extension B::Utils.
 
+0.12 Mon Jan 24 2011
+   - EU::Depends version [RT #53415]
+   - Build with Dist::Zilla
+
 0.11 Tue Jan 12 2010
    - Repackaged using environment variables COPYFILE_DISABLE=1 and COPYFILE_EXTENDED_ATTRIBUTES_DISABLE=1
    - Silenced PROTOTYPES warning on compilation
