@@ -257,3 +257,4 @@ BUtils_make_sv_object(pTHX_ SV *arg, SV *sv)
 }
 
 MODULE = B::Utils           PACKAGE = B::Utils
+PROTOTYPES: DISABLE

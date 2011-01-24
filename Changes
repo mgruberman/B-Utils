@@ -1,5 +1,14 @@
 Revision history for Perl extension B::Utils.
 
+0.11 Tue Jan 12 2010
+   - Repackaged using environment variables COPYFILE_DISABLE=1 and COPYFILE_EXTENDED_ATTRIBUTES_DISABLE=1
+   - Silenced PROTOTYPES warning on compilation
+   - Update manifest
+
+0.10 Sun Dec 20 2009
+   - Fixed B::OP::siblings
+   - Updated docs
+
 0.09 Sun Dec 06 21:36:00 PDT 2009
    - Add ExtUtils::CBuilder to prequisite list to hopefully quench any
      bad builds attempted on perl-5.
