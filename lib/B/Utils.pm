@@ -11,8 +11,9 @@ use subs (
     qw( walkoptree_simple walkoptree_filtered ),
     qw( walkallops_simple walkallops_filtered ),
     qw( opgrep op_or ),
-    qw( croak carp )
 );
+sub croak (@);
+sub carp (@);
 
 use Scalar::Util qw( weaken blessed );
 
