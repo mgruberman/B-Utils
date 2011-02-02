@@ -1,5 +1,8 @@
 Revision history for Perl extension B::Utils.
 
+0.13 Tue Feb  2 2011
+   - Predeclare carp and croak with proper signature
+
 0.12 Mon Jan 24 2011
    - EU::Depends version [RT #53415]
    - Build with Dist::Zilla
