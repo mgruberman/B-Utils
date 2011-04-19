@@ -1,5 +1,8 @@
 Revision history for Perl extension B::Utils.
 
+0.15 Mon Apr 18 2011
+   - Try harder to add ExtUtils::Depends to META.yml's configure_requires
+
 0.14 Sat Mar 18 2011
    - Predeclare carp and croak with proper signature
    - Add ExtUtils::Depends to META.yml's configure_requires
