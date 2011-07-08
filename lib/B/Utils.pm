@@ -29,11 +29,11 @@ B::Utils - Helper functions for op tree manipulation
 
 =head1 VERSION
 
-0.15
+0.16
 
 =cut
 
-$VERSION = '0.15';
+$VERSION = '0.16';
 
 
 
