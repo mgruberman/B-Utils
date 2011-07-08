@@ -2,12 +2,7 @@
 use 5.006;
 use strict;
 
-my $ExtUtils_Depends_required;
-
-# [RT #53415]
-if ($^O eq 'Win32') { $ExtUtils_Depends_required = 0.302; }
-else { $ExtUtils_Depends_required = 0.301; }
-
+my $ExtUtils_Depends_required = 0.302;
 eval {
 	require ExtUtils::Depends;
 };

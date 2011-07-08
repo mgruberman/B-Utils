@@ -1,5 +1,10 @@
 Revision history for Perl extension B::Utils.
 
+next Fri Jul 08 2011
+   - EU::Depends version. The CPAN built version specified only 0.301
+     but Windows computers needed 0.302 so their CPAN clients were
+     broken.
+
 0.15 Mon Apr 18 2011
    - Try harder to add ExtUtils::Depends to META.yml's configure_requires
 
