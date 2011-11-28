@@ -1,5 +1,7 @@
 Revision history for Perl extension B::Utils.
 
+   - Use FUNCLIST to declare exported symbols (Alexandr Ciornii)
+
 0.16 Fri Jul 08 2011
    - EU::Depends version. The CPAN built version specified only 0.301
      but Windows computers needed 0.302 so their CPAN clients were
