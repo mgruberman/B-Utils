@@ -703,7 +703,7 @@ Same as above, but filtered.
 sub walkallops_filtered {
     $sub = undef;
 
-    &_walkallops_filterd;
+    &_walkallops_filtered;
 
     return _TRUE;
 }
