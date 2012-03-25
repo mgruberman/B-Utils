@@ -1,11 +1,14 @@
 use strict;
 use warnings;
 
-use Test::Exception tests => 1;
-
+use Test::More tests => 3;
 use B::Utils qw( walkallops_filtered opgrep );
 
-lives_ok {
+ok(defined &walkallops_filtered, "defined &walkallops_filtered");
+ok(defined &opgrep, "defined &opgrep");
+
+my $lived;
+eval {
     walkallops_filtered(
         sub { opgrep( {name => "exec",
                     next => {
@@ -17,6 +20,7 @@ lives_ok {
             warn("Statement unlikely to be reached");
             warn("\t(Maybe you meant system() when you said exec()?)\n");
         }
-    )
-} 'walkallops_filtered should not die when called as documented';
-
+    );
+    $lived = 1;
+};
+ok($lived, "Successfully called walkallops_filtered");
