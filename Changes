@@ -2,6 +2,12 @@ Revision history for Perl extension B::Utils.
 
    - Use FUNCLIST to declare exported symbols (Alexandr Ciornii)
 
+0.21
+   - Avoid undeclared dependency on Test::Exception introduced by 0.19
+
+0.19
+   - Fix typo in in walkallops_filtered function call
+
 0.16 Fri Jul 08 2011
    - EU::Depends version. The CPAN built version specified only 0.301
      but Windows computers needed 0.302 so their CPAN clients were
