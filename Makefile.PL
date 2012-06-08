@@ -52,10 +52,11 @@ WriteMakefile1(
     },
     test          => { TESTS => 't/*.t t/*/*.t' },
     $pkg->get_makefile_vars,
-    FUNCLIST => [
-      'boot_B__Utils', #necessary for work of B::Utils
-      qw/BUtils_cc_opclassname BUtils_make_sv_object BUtils_op_name_to_num/, #defined in BUtils.h
-    ],
+    (($^O eq 'hpux') ? () :
+     (FUNCLIST => [
+	'boot_B__Utils', #necessary for work of B::Utils
+	qw/BUtils_cc_opclassname BUtils_make_sv_object BUtils_op_name_to_num/, #defined in BUtils.h
+      ])),
 );
 
 sub WriteMakefile1 {
