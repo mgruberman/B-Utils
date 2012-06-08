@@ -36,11 +36,9 @@ WriteMakefile1(
     },
     BUILD_REQUIRES => {
         'Test::More' => 0,
-        'ExtUtils::CBuilder' => 0,
     },
     CONFIGURE_REQUIRES => {
         'ExtUtils::Depends' => $ExtUtils_Depends_required,
-        'ExtUtils::CBuilder' => 0,
     },
     ABSTRACT_FROM => 'lib/B/Utils.pm',
     AUTHOR        => 'Josh Jore <jjore@cpan.org>',

@@ -6,7 +6,7 @@
 /* Stolen from pp_ctl.c (with modifications) */
 
 static I32
-dopoptosub_at(pTHX_ PERL_CONTEXT *cxstk, I32 startingblock)
+BUtils_dopoptosub_at(pTHX_ PERL_CONTEXT *cxstk, I32 startingblock)
 {
     dTHR;
     I32 i;
@@ -30,10 +30,10 @@ dopoptosub_at(pTHX_ PERL_CONTEXT *cxstk, I32 startingblock)
 }
 
 static I32
-dopoptosub(pTHX_ I32 startingblock)
+BUtils_dopoptosub(pTHX_ I32 startingblock)
 {
     dTHR;
-    return dopoptosub_at(aTHX_ cxstack, startingblock);
+    return BUtils_dopoptosub_at(aTHX_ cxstack, startingblock);
 }
 
 /* This function is based on the code of pp_caller */
@@ -42,7 +42,7 @@ BUtils_op_upcontext(pTHX_ I32 count, COP **cop_p, PERL_CONTEXT **ccstack_p,
                     I32 *cxix_from_p, I32 *cxix_to_p)
 {
     PERL_SI *top_si = PL_curstackinfo;
-    I32 cxix = dopoptosub(aTHX_ cxstack_ix);
+    I32 cxix = BUtils_dopoptosub(aTHX_ cxstack_ix);
     PERL_CONTEXT *ccstack = cxstack;
 
     if (cxix_from_p) *cxix_from_p = cxstack_ix+1;
@@ -52,7 +52,7 @@ BUtils_op_upcontext(pTHX_ I32 count, COP **cop_p, PERL_CONTEXT **ccstack_p,
         while (cxix < 0 && top_si->si_type != PERLSI_MAIN) {
             top_si  = top_si->si_prev;
             ccstack = top_si->si_cxstack;
-            cxix = dopoptosub_at(aTHX_ ccstack, top_si->si_cxix);
+            cxix = BUtils_dopoptosub_at(aTHX_ ccstack, top_si->si_cxix);
                         if (cxix_to_p && cxix_from_p) *cxix_from_p = *cxix_to_p;
                         if (cxix_to_p) *cxix_to_p = cxix;
         }
@@ -69,7 +69,7 @@ BUtils_op_upcontext(pTHX_ I32 count, COP **cop_p, PERL_CONTEXT **ccstack_p,
             break;
 
         if (cop_p) *cop_p = ccstack[cxix].blk_oldcop;
-        cxix = dopoptosub_at(aTHX_ ccstack, cxix - 1);
+        cxix = BUtils_dopoptosub_at(aTHX_ ccstack, cxix - 1);
                         if (cxix_to_p && cxix_from_p) *cxix_from_p = *cxix_to_p;
                         if (cxix_to_p) *cxix_to_p = cxix;
     }
@@ -90,7 +90,7 @@ BUtils_op_upcontext(pTHX_ I32 count, COP **cop_p, PERL_CONTEXT **ccstack_p,
 )
 
 OP*
-find_return_op(pTHX_ I32 uplevel)
+BUtils_find_return_op(pTHX_ I32 uplevel)
 {
     PERL_CONTEXT *cx = BUtils_op_upcontext(aTHX_ uplevel, 0, 0, 0, 0);
     if (!cx) TOO_FAR;
@@ -102,7 +102,7 @@ find_return_op(pTHX_ I32 uplevel)
 }
 
 OP*
-find_oldcop(pTHX_ I32 uplevel)
+BUtils_find_oldcop(pTHX_ I32 uplevel)
 {
     PERL_CONTEXT *cx = BUtils_op_upcontext(aTHX_ uplevel, 0, 0, 0, 0);
     if (!cx) TOO_FAR;
@@ -116,14 +116,14 @@ PROTOTYPES: DISABLE
 B::OP
 parent_op(I32 uplevel)
   CODE:
-    RETVAL = find_oldcop(aTHX_ uplevel);
+    RETVAL = BUtils_find_oldcop(aTHX_ uplevel);
   OUTPUT:
     RETVAL
 
 B::OP
 return_op(I32 uplevel)
   CODE:
-    RETVAL = find_return_op(aTHX_ uplevel);
+    RETVAL = BUtils_find_return_op(aTHX_ uplevel);
   OUTPUT:
     RETVAL
 

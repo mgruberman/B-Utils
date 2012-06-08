@@ -20,10 +20,16 @@ START_MY_CXT
 
 /* Stolen from B.xs */
 
-/* XXX: this really need to properly exported by the B module,
+/* XXX: This really need to be properly exported by the B module,
   possibly with custom .h retrieved by some extutil module for
   building, and we shall be able to simply reuse the public symbol
-  from loaded module in run time. */
+  from loaded module in run time.
+
+  Beware of name clashes with CORE when loading the .so into the global namespace.
+  It fails with strict linkers, HP-UX, OpenBSD and probably on darwin without -flat-namespace.
+  "Can't make loaded symbols global on this platform while loading blib/arch/auto/B/Utils/Utils.sl
+  at /opt/perl_32/lib/5.8.8/PA-RISC1.1-thread-multi/DynaLoader.pm line 230."
+*/
 
 #ifdef PERL_OBJECT
 #undef PL_op_name
@@ -34,8 +40,8 @@ START_MY_CXT
 #define PL_op_desc (get_op_descs())
 #endif
 
-/* duplicated from B.xs */
-static char *svclassnames[] = {
+/* duplicated from B.xs. */
+static char *BUtils_svclassnames[] = {
     "B::NULL",
     "B::IV",
     "B::NV",
@@ -72,9 +78,9 @@ typedef enum {
     OPc_PVOP,	/* 9 */
     OPc_LOOP,	/* 10 */
     OPc_COP	/* 11 */
-} opclass;
+} BUtils_opclass;
 
-static char *opclassnames[] = {
+static char *BUtils_opclassnames[] = {
     "B::NULL",
     "B::OP",
     "B::UNOP",
@@ -89,8 +95,8 @@ static char *opclassnames[] = {
     "B::COP"	
 };
 
-static opclass
-cc_opclass(pTHX_ const OP *o)
+static BUtils_opclass
+BUtils_cc_opclass(pTHX_ const OP *o)
 {
     if (!o)
 	return OPc_NULL;
@@ -200,7 +206,7 @@ cc_opclass(pTHX_ const OP *o)
 char *
 BUtils_cc_opclassname(pTHX_ const OP *o)
 {
-    return opclassnames[cc_opclass(aTHX_ o)];
+    return BUtils_opclassnames[BUtils_cc_opclass(aTHX_ o)];
 }
 
 I32
@@ -249,7 +255,7 @@ BUtils_make_sv_object(pTHX_ SV *arg, SV *sv)
     dMY_CXT;
 
     if (!type) {
-	type = svclassnames[SvTYPE(sv)];
+	type = BUtils_svclassnames[SvTYPE(sv)];
 	iv = PTR2IV(sv);
     }
     sv_setiv(newSVrv(arg, type), iv);
