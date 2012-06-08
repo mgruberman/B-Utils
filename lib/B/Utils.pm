@@ -1128,7 +1128,7 @@ Originally written by Simon Cozens, C<simon@cpan.org>
 Maintained by Joshua ben Jore, C<jjore@cpan.org>
 
 Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
-Chia-liang Kao, Alexandr Ciornii.
+Chia-liang Kao, Alexandr Ciornii, Reini Urban.
 
 =head1 LICENSE
 
