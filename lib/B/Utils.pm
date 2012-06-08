@@ -54,7 +54,7 @@ use base 'DynaLoader';
 bootstrap B::Utils $VERSION;
 #bootstrap B::Utils::OP $VERSION;
 #B::Utils::OP::boot_B__Utils__OP();
-sub dl_load_flags {0x01}
+#sub dl_load_flags {0x01}
 
 =head1 SYNOPSIS
 
@@ -1128,7 +1128,7 @@ Originally written by Simon Cozens, C<simon@cpan.org>
 Maintained by Joshua ben Jore, C<jjore@cpan.org>
 
 Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
-Chia-liang Kao, Alexandr Ciornii.
+Chia-liang Kao, Alexandr Ciornii, Reini Urban.
 
 =head1 LICENSE
 
