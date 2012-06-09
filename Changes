@@ -1,5 +1,9 @@
 Revision history for Perl extension B::Utils.
 
+0.22
+   - resolve nameclashes with CORE, fix hpux and openbsd failures (Reini Urban)
+   - remove unneeded ExtUtils::CBuilder req (Reini Urban)
+   - do not use FUNCLIST on hpux (Reini Urban)
    - Use FUNCLIST to declare exported symbols (Alexandr Ciornii)
 
 0.21
