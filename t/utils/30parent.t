@@ -60,7 +60,7 @@ walkoptree_simple(
         else {
 
             ok( $parent, $op->stringify . " has a parent" );
-	    
+            
             my $correct_parent;
             for ( $parent ? $parent->kids : () ) {
                 if ( $$_ == $$op ) {
@@ -68,8 +68,8 @@ walkoptree_simple(
                     last;
                 }
             }
-	    is( $$correct_parent, $$op, 
-		$op->stringify . " has the *right* parent " . $parent);
+            is( $$correct_parent, $$op, 
+                $op->stringify . " has the *right* parent " . $parent);
         }
     }
 );

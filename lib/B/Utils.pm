@@ -157,9 +157,9 @@ sub B::OP::kids {
 
     my @kids;
     if ( ref $op and $$op and $op->flags & OPf_KIDS ) {
-	for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
-	    push @kids, $kid;
-	}
+        for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
+            push @kids, $kid;
+        }
         ### Assert: $op->children == @kids
     }
     else {
@@ -316,7 +316,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##           for @kids;
 ##
 ##         # For each child, check it for a match.
-## 	my $found;
+##      my $found;
 ##         $found = $search->($_) and return $found
 ##           for @kids;
 ##
@@ -327,7 +327,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##
 ##     my $next = $target;
 ##     while ( eval { $next = $next->next } ) {
-## 	my $result;
+##      my $result;
 ##         $result = $search->( $next )
 ##           and return $result;
 ##     }
@@ -597,7 +597,7 @@ sub walkoptree_simple {
 sub _walkoptree_simple {
     my ( $visited, $op, $callback, $data ) = @_;
 
-	return if $visited->{$$op}++;
+        return if $visited->{$$op}++;
 
     if ( ref $op and $op->isa("B::COP") ) {
         $file = $op->file;
@@ -609,9 +609,9 @@ sub _walkoptree_simple {
         and $$op
         and $op->flags & OPf_KIDS )
     {
-	# for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
-	#     _walkoptree_simple( $visited, $kid, $callback, $data );
-	# }
+        # for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
+        #     _walkoptree_simple( $visited, $kid, $callback, $data );
+        # }
         _walkoptree_simple( $visited, $_, $callback, $data ) for $op->kids;
     }
 
@@ -638,7 +638,7 @@ sub walkoptree_filtered {
 }
 
 sub _walkoptree_filtered {
-	my ( $visited, $op, $filter, $callback, $data ) = @_;
+        my ( $visited, $op, $filter, $callback, $data ) = @_;
 
     if ( $op->isa("B::COP") ) {
         $file = $op->file;
