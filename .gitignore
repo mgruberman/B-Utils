@@ -1,2 +1,12 @@
+*~
 /.build
-/B-Utils-*
+/MYMETA.json
+/MYMETA.yml
+/Makefile
+/OP.c
+/OP.o
+/Utils.bs
+/Utils.c
+/Utils.o
+/blib
+pm_to_blib
