@@ -29,11 +29,11 @@ B::Utils - Helper functions for op tree manipulation
 
 =head1 VERSION
 
-0.21
+0.2101
 
 =cut
 
-$VERSION = '0.21';
+$VERSION = '0.2101';
 
 
 
@@ -156,12 +156,10 @@ sub B::OP::kids {
     return unless defined wantarray;
 
     my @kids;
-    if ( class($op) eq "LISTOP" ) {
-        @kids = $op->first;
-        push @kids, $kids[-1]->sibling while $kids[-1]->can('sibling');
-        pop @kids
-            if 'NULL' eq class( $kids[-1] );
-
+    if ( ref $op and $$op and $op->flags & OPf_KIDS ) {
+        for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
+            push @kids, $kid;
+        }
         ### Assert: $op->children == @kids
     }
     else {
@@ -318,7 +316,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##           for @kids;
 ##
 ##         # For each child, check it for a match.
-## 	my $found;
+##         my $found;
 ##         $found = $search->($_) and return $found
 ##           for @kids;
 ##
@@ -329,7 +327,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##
 ##     my $next = $target;
 ##     while ( eval { $next = $next->next } ) {
-## 	my $result;
+##         my $result;
 ##         $result = $search->( $next )
 ##           and return $result;
 ##     }
@@ -599,7 +597,7 @@ sub walkoptree_simple {
 sub _walkoptree_simple {
     my ( $visited, $op, $callback, $data ) = @_;
 
-	return if $visited->{$$op}++;
+    return if $visited->{$$op}++;
 
     if ( ref $op and $op->isa("B::COP") ) {
         $file = $op->file;
@@ -607,11 +605,20 @@ sub _walkoptree_simple {
     }
 
     $callback->( $op, $data );
-    if (    ref $op
-        and $$op
-        and $op->flags & OPf_KIDS )
-    {
+    return if $op->isa('B::NULL');
+    if ( $op->flags & OPf_KIDS ) {
+        # for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
+        #     _walkoptree_simple( $visited, $kid, $callback, $data );
+        # }
         _walkoptree_simple( $visited, $_, $callback, $data ) for $op->kids;
+    }
+    if ( $op->isa('B::PMOP') ) {
+        my $maybe_root = $op->pmreplroot;
+        if (ref($maybe_root) and $maybe_root->isa("B::OP")) {
+            # It really is the root of the replacement, not something
+            # else stored here for lack of space elsewhere
+            _walkoptree_simple( $visited, $maybe_root, $callback, $data );
+        }
     }
 
     return;
@@ -637,7 +644,7 @@ sub walkoptree_filtered {
 }
 
 sub _walkoptree_filtered {
-	my ( $visited, $op, $filter, $callback, $data ) = @_;
+    my ( $visited, $op, $filter, $callback, $data ) = @_;
 
     if ( $op->isa("B::COP") ) {
         $file = $op->file;
