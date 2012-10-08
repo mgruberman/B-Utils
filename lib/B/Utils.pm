@@ -156,12 +156,10 @@ sub B::OP::kids {
     return unless defined wantarray;
 
     my @kids;
-    if ( class($op) eq "LISTOP" ) {
-        @kids = $op->first;
-        push @kids, $kids[-1]->sibling while $kids[-1]->can('sibling');
-        pop @kids
-            if 'NULL' eq class( $kids[-1] );
-
+    if ( ref $op and $$op and $op->flags & OPf_KIDS ) {
+	for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
+	    push @kids, $kid;
+	}
         ### Assert: $op->children == @kids
     }
     else {
@@ -611,6 +609,9 @@ sub _walkoptree_simple {
         and $$op
         and $op->flags & OPf_KIDS )
     {
+	# for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
+	#     _walkoptree_simple( $visited, $kid, $callback, $data );
+	# }
         _walkoptree_simple( $visited, $_, $callback, $data ) for $op->kids;
     }
 
