@@ -316,7 +316,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##           for @kids;
 ##
 ##         # For each child, check it for a match.
-##      my $found;
+##         my $found;
 ##         $found = $search->($_) and return $found
 ##           for @kids;
 ##
@@ -327,7 +327,7 @@ Like C< $op-E<gt>next >, but not quite.
 ##
 ##     my $next = $target;
 ##     while ( eval { $next = $next->next } ) {
-##      my $result;
+##         my $result;
 ##         $result = $search->( $next )
 ##           and return $result;
 ##     }
@@ -644,7 +644,7 @@ sub walkoptree_filtered {
 }
 
 sub _walkoptree_filtered {
-        my ( $visited, $op, $filter, $callback, $data ) = @_;
+    my ( $visited, $op, $filter, $callback, $data ) = @_;
 
     if ( $op->isa("B::COP") ) {
         $file = $op->file;
