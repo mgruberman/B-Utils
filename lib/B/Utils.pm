@@ -29,11 +29,11 @@ B::Utils - Helper functions for op tree manipulation
 
 =head1 VERSION
 
-0.21_01
+0.2101
 
 =cut
 
-$VERSION = '0.21_01';
+$VERSION = '0.2101';
 
 
 
@@ -597,7 +597,7 @@ sub walkoptree_simple {
 sub _walkoptree_simple {
     my ( $visited, $op, $callback, $data ) = @_;
 
-        return if $visited->{$$op}++;
+    return if $visited->{$$op}++;
 
     if ( ref $op and $op->isa("B::COP") ) {
         $file = $op->file;
@@ -605,14 +605,20 @@ sub _walkoptree_simple {
     }
 
     $callback->( $op, $data );
-    if (    ref $op
-        and $$op
-        and $op->flags & OPf_KIDS )
-    {
+    return if $op->isa('B::NULL');
+    if ( $op->flags & OPf_KIDS ) {
         # for (my $kid = $op->first; $$kid; $kid = $kid->sibling) {
         #     _walkoptree_simple( $visited, $kid, $callback, $data );
         # }
         _walkoptree_simple( $visited, $_, $callback, $data ) for $op->kids;
+    }
+    if ( $op->isa('B::PMOP') ) {
+        my $maybe_root = $op->pmreplroot;
+        if (ref($maybe_root) and $maybe_root->isa("B::OP")) {
+            # It really is the root of the replacement, not something
+            # else stored here for lack of space elsewhere
+            _walkoptree_simple( $visited, $maybe_root, $callback, $data );
+        }
     }
 
     return;
