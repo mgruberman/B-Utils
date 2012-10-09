@@ -18,16 +18,14 @@ foreach my $op (values all_roots) {
   walkoptree_simple( $op, $callback );
 }
 is_deeply(\@lines, 
-          [8, 15, 17, 18, 20, 29, 
-           # 30,    # See FIXME: below
-           32, 35,
-           # 37,
+          [8, 15, 17, 18, 20, 27, 28, 30, 33
+           # 35,
           ],
           'walkoptree_simple lines of ' . __FILE__);
 
 # For testing following if/else in code.
 if (@lines) {
-  ok(1);     # FIXME: This line isn't coming out.
+  ok(1);     # We had a bug in not getting this line number once.
 } else {
   ok(0);
 }
