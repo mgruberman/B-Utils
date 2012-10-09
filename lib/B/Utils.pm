@@ -578,9 +578,9 @@ more expected semantics.
 All the C<walk> functions set C<$B::Utils::file>, C<$B::Utils::line>,
 and C<$B::Utils::sub> to the appropriate values of file, line number,
 and sub name in the program being examined. They also set
-C<B::Utils::trace_removed> for a line number whose controling COP was
-optimized away. Such lines won't normally be breakpoint-able in a
-debugger without special work. 
+C<$B::Utils::trace_removed> when the nextstate COPs that contained
+that line was optimized away. Such lines won't normally be
+step-able or breakpoint-able in a debugger without special work.
 
 =cut
 
@@ -606,7 +606,7 @@ sub _walkoptree_simple {
         $file = $op->file;
         $line = $op->line;
         $trace_removed = _FALSE;
-    } elsif ( $op->oldname eq 'nextstate' ) {
+    } elsif ( !$op->isa('B::NULL') and $op->oldname eq 'nextstate' ) {
         # COP nextstate has been optimized away.  However by turning
         # this back into a COP we can retrieve the file and line
         # values.
