@@ -109,13 +109,13 @@ sub _FALSE () { !!0 }
 # =item C<$op-E<gt>other>
 #
 # Normally if you call first, last or other on anything which is not an
-# UNOP, BINOP or LOGOP respectivly it will die.  This leads to lots of
+# UNOP, BINOP or LOGOP respectively it will die.  This leads to lots of
 # code like:
 #
 #     $op->first if $op->can('first');
 #
 # B::Utils provides every op with first, last and other methods which
-# will simply return nothing if it isn't relevent.
+# will simply return nothing if it isn't relevant.
 #
 # =cut
 #
@@ -126,7 +126,7 @@ sub _FALSE () { !!0 }
 =item C<$op-E<gt>oldname>
 
 Returns the name of the op, even if it is currently optimized to null.
-This helps you understand the stucture of the op tree.
+This helps you understand the structure of the op tree.
 
 =cut
 
