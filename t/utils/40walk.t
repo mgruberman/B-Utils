@@ -14,7 +14,7 @@ my $callback = sub
   }
 };
 
-foreach my $op (values all_roots) {
+foreach my $op (values %{all_roots()}) {
   walkoptree_simple( $op, $callback );
 }
 is_deeply(\@lines, 
