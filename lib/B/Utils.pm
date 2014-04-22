@@ -693,7 +693,11 @@ sub _walkallops_simple {
 
     _init_sub_cache();
 
-    walkoptree_simple( $_, $callback, $data ) for values %roots;
+    for my $sub_name (sort keys %roots) {
+	$sub = $sub_name;
+	my $root = $roots{$sub_name};
+	walkoptree_simple( $root, $callback, $data );
+    }
 
     $sub = "__ANON__";
     walkoptree_simple( $_->{root}, $callback, $data ) for @anon_subs;
