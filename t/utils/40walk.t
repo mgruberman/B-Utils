@@ -17,12 +17,17 @@ my $callback = sub
 foreach my $op (values %{all_roots()}) {
   walkoptree_simple( $op, $callback );
 }
+my $expected = [8, 15, 17, 18, 20, 25, 29,
+                # 30,    # See FIXME: below
+                34, 37, 40
+                # 37,
+               ];
+if ($] < 5.007) {
+  $expected =  [8, 15, 17, 18, 17, 20, 25, 29, 34, 37, 40];
+}
+
 is_deeply(\@lines, 
-          [8, 15, 17, 18, 20, 29, 
-           # 30,    # See FIXME: below
-           32, 35,
-           # 37,
-          ],
+          $expected,
           'walkoptree_simple lines of ' . __FILE__);
 
 # For testing following if/else in code.
