@@ -1,5 +1,11 @@
 Revision history for Perl extension B::Utils.
 
+0.26
+   - Support native B::OP::parent with 5.21.2 -DPERL_OP_PARENT
+
+0.25
+   - Re-expose symbols by setting dl_load_flags. Hope this is ok for HP-UX
+
 0.24
    - Export C symbols, breakage from 0.22
 

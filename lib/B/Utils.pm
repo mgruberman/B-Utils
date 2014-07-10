@@ -29,12 +29,11 @@ B::Utils - Helper functions for op tree manipulation
 
 =head1 VERSION
 
-0.25
+0.26
 
 =cut
 
-$VERSION = '0.25';
-
+$VERSION = '0.26';
 
 
 =head1 INSTALLATION
@@ -114,8 +113,8 @@ sub _FALSE () { !!0 }
 #
 #     $op->first if $op->can('first');
 #
-# B::Utils provides every op with first, last and other methods which
-# will simply return nothing if it isn't relevent.
+# B::Utils provided every op with first, last and other methods which
+# will simply returned nothing if it isn't relevent. But this broke B::Concise
 #
 # =cut
 #
@@ -185,11 +184,16 @@ figure out how to do that.
 
 =cut
 
+BEGIN {
+  unless ($] >= 5.021002 and exists &B::OP::parent) {
+    eval q[
 sub B::OP::parent {
     my $op     = shift;
     my $parent = $op->_parent_impl( $op, "" );
 
     $parent;
+}];
+  }
 }
 
 sub B::NULL::_parent_impl { }
