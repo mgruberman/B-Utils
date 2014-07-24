@@ -10,7 +10,7 @@ $self = {
         };
 
 
-# this is for backwards compatiblity
+# this is for backwards compatibility
 @deps = @{ $self->{deps} };
 @typemaps = @{ $self->{typemaps} };
 $libs = $self->{libs};
