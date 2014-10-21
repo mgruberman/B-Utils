@@ -208,7 +208,7 @@ sub B::OP::_parent_impl {
     return (
         $op->sibling->_parent_impl( $target, "$cx$$op S " )
             || (
-              $cx =~ /^(?:\d+ S )*(?:\d+ N )*$/
+              $cx =~ /^(?:-?\d+ S )*(?:-?\d+ N )*$/
             ? $op->next->_parent_impl( $target, "$cx$$op N " )
             : ()
             )
