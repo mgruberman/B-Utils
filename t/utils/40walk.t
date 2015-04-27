@@ -17,13 +17,11 @@ my $callback = sub
 foreach my $op (values %{all_roots()}) {
   walkoptree_simple( $op, $callback );
 }
-my $expected = [8, 15, 17, 18, 20, 25, 29,
-                # 30,    # See FIXME: below
-                34, 37, 40
-                # 37,
-               ];
+my $expected = [8, 15, 17, 18, 20, 21, 27, 32, 35, 38, 39];
 if ($] < 5.007) {
-  $expected =  [8, 15, 17, 18, 17, 20, 25, 29, 34, 37, 40];
+  $expected =  [8, 15, 17, 18, 17, 20, 21, 27, 32, 35, 38, 39];
+} elsif ($] >= 5.021008) {
+  $expected = [8, 15, 17, 17, 18, 20, 21, 22, 23, 24, 27, 32, 33, 35, 38, 39];
 }
 
 is_deeply(\@lines, 
@@ -37,6 +35,6 @@ if (@lines) {
   ok(0);
 }
 
-done_testing();
-__END__
 diag join(', ', @lines), "\n";
+done_testing();
+

@@ -1,16 +1,14 @@
 package B::Utils::Install::Files;
 
 $self = {
+          'deps' => [],
           'inc' => '',
+          'libs' => '',
           'typemaps' => [
                           'typemap'
-                        ],
-          'deps' => [],
-          'libs' => ''
+                        ]
         };
 
-
-# this is for backwards compatiblity
 @deps = @{ $self->{deps} };
 @typemaps = @{ $self->{typemaps} };
 $libs = $self->{libs};
@@ -22,6 +20,18 @@ $inc = $self->{inc};
 			$CORE = $_ . "/B/Utils/Install/";
 			last;
 		}
+	}
+
+	sub deps { @{ $self->{deps} }; }
+
+	sub Inline {
+		my ($class, $lang) = @_;
+		if ($lang ne 'C') {
+			warn "Warning: Inline hints not available for $lang language
+";
+			return;
+		}
+		+{ map { (uc($_) => $self->{$_}) } qw(inc libs typemaps) };
 	}
 
 1;

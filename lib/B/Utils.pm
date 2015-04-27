@@ -182,6 +182,11 @@ In the future, it may be possible to search for the parent before we
 have the C<next> pointers in place, but it'll take me a while to
 figure out how to do that.
 
+Warning: Since 5.21.2 B comes with it's own version of B::OP::parent
+which returns either B::NULL or the real parent when ccflags contains
+-DPERL_OP_PARENT.
+In this case rather use $op->_parent.
+
 =cut
 
 BEGIN {
@@ -193,6 +198,18 @@ sub B::OP::parent {
 
     $parent;
 }];
+  } else {
+    eval q[
+sub B::OP::_parent {
+    my $op     = shift;
+    my $parent = $op->_parent_impl( $op, "" );
+    $parent;
+}];
+  }
+  if ($] >= 5.021002) {
+    eval q[
+sub B::NULL::kids { }
+    ];
   }
 }
 
@@ -1140,10 +1157,11 @@ document for the functions provided, use:
 =head1 AUTHOR
 
 Originally written by Simon Cozens, C<simon@cpan.org>
-Maintained by Joshua ben Jore, C<jjore@cpan.org>
+Maintained by Joshua ben Jore, C<jjore@cpan.org> and
+Reini Urban C<rurban@cpan.org>.
 
 Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
-Chia-liang Kao, Alexandr Ciornii, Reini Urban.
+Chia-liang Kao, Alexandr Ciornii.
 
 =head1 LICENSE
 
