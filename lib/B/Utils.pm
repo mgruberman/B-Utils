@@ -29,12 +29,11 @@ B::Utils - Helper functions for op tree manipulation
 
 =head1 VERSION
 
-0.25
+0.26
 
 =cut
 
-$VERSION = '0.25';
-
+$VERSION = '0.26';
 
 
 =head1 INSTALLATION
@@ -114,8 +113,8 @@ sub _FALSE () { !!0 }
 #
 #     $op->first if $op->can('first');
 #
-# B::Utils provides every op with first, last and other methods which
-# will simply return nothing if it isn't relevent.
+# B::Utils provided every op with first, last and other methods which
+# will simply returned nothing if it isn't relevent. But this broke B::Concise
 #
 # =cut
 #
@@ -183,13 +182,35 @@ In the future, it may be possible to search for the parent before we
 have the C<next> pointers in place, but it'll take me a while to
 figure out how to do that.
 
+Warning: Since 5.21.2 B comes with it's own version of B::OP::parent
+which returns either B::NULL or the real parent when ccflags contains
+-DPERL_OP_PARENT.
+In this case rather use $op->_parent.
+
 =cut
 
+BEGIN {
+  unless ($] >= 5.021002 and exists &B::OP::parent) {
+    eval q[
 sub B::OP::parent {
     my $op     = shift;
     my $parent = $op->_parent_impl( $op, "" );
 
     $parent;
+}];
+  } else {
+    eval q[
+sub B::OP::_parent {
+    my $op     = shift;
+    my $parent = $op->_parent_impl( $op, "" );
+    $parent;
+}];
+  }
+  if ($] >= 5.021002) {
+    eval q[
+sub B::NULL::kids { }
+    ];
+  }
 }
 
 sub B::NULL::_parent_impl { }
@@ -1136,10 +1157,11 @@ document for the functions provided, use:
 =head1 AUTHOR
 
 Originally written by Simon Cozens, C<simon@cpan.org>
-Maintained by Joshua ben Jore, C<jjore@cpan.org>
+Maintained by Joshua ben Jore, C<jjore@cpan.org> and
+Reini Urban C<rurban@cpan.org>.
 
 Contributions from Mattia Barbon, Jim Cromie, Steffen Mueller, and
-Chia-liang Kao, Alexandr Ciornii, Reini Urban.
+Chia-liang Kao, Alexandr Ciornii.
 
 =head1 LICENSE
 
