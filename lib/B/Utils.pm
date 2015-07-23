@@ -4,7 +4,7 @@ use 5.006;
 use strict;
 use warnings;
 use vars qw( $VERSION @EXPORT_OK %EXPORT_TAGS
-    @bad_stashes $TRACE_FH $file $line $sub );
+    @bad_stashes $TRACE_FH $file $line $sub $trace_removed );
 
 use subs (
     qw( all_starts all_roots anon_sub recalc_sub_cache ),
@@ -372,7 +372,7 @@ it to C<0> will limit the dump to the current op.
 
 C<attributes> is a list of attributes to include in the produced
 pattern. The attributes that can be checked against in this way
-are 
+are
 
   name targ type seq flags private pmflags pmpermflags.
 
@@ -384,7 +384,7 @@ sub B::OP::as_opgrep_pattern {
 
   my $attribs = $opt->{attributes};
   $attribs ||= [qw(name flags)];
-  
+
   my $pattern = {};
   foreach my $attr (@$attribs) {
     $pattern->{$attr} = $op->$attr() if $op->can($attr);
@@ -578,6 +578,9 @@ more expected semantics.
 All the C<walk> functions set C<$B::Utils::file>, C<$B::Utils::line>,
 and C<$B::Utils::sub> to the appropriate values of file, line number,
 and sub name in the program being examined.
+C<$B::Utils::trace_removed> when the nextstate COPs that contained
+that line was optimized away. Such lines won't normally be
+step-able or breakpoint-able in a debugger without special work.
 
 =cut
 
@@ -602,6 +605,16 @@ sub _walkoptree_simple {
     if ( ref $op and $op->isa("B::COP") ) {
         $B::Utils::file = $op->file;
         $B::Utils::line = $op->line;
+        $trace_removed = _FALSE;
+    } elsif ( !$op->isa('B::NULL') and $op->oldname eq 'nextstate' ) {
+        # COP nextstate has been optimized away.  However by turning
+        # this back into a COP we can retrieve the file and line
+        # values.
+        my $cop = $op;
+        bless $cop, 'B::COP';
+        $file = $cop->file;
+        $line = $cop->line;
+        $trace_removed = _TRUE;
     }
 
     $callback->( $op, $data );
@@ -803,13 +816,13 @@ of interest. Example:
     },
     $root_op
   );
-  
+
   if ($result) {
     my $name = $result->{notreached}->name; # result is *not* the root op
     carp("Statement unlikely to be reached (op name: $name)");
     carp("\t(Maybe you meant system() when you said exec()?)\n");
   }
-  
+
 While the above is a terribly contrived example, consider the win for a
 deeply nested pattern or worse yet, a pattern with many disjunctions.
 If a C<capture> property is found anywhere in
@@ -826,7 +839,7 @@ You cannot capture disjunctions, but that doesn't really make sense anyway.
 
 Same as above, except that you don't have to chain the conditions
 yourself.  If you pass an array-ref, opgrep will chain the conditions
-for you using C<next>. 
+for you using C<next>.
 The conditions can either be strings (taken as op-names), or
 hash-refs, with the same testable conditions as given above.
 
@@ -915,7 +928,7 @@ CONDITION:
 
                         # Fail if any entries match.
                         $_ ne $val
-                            or next CONDITION 
+                            or next CONDITION
                             for @{ $condition->{$test} }
                             [ 1 .. $#{ $condition->{$test} } ];
                     }
@@ -923,8 +936,8 @@ CONDITION:
 
                         # Fail if no entries match.
                         my $okay = 0;
-                        
-                        $_ eq $val and $okay = 1, last 
+
+                        $_ eq $val and $okay = 1, last
                             for @{ $condition->{$test} };
 
                         next CONDITION if not $okay;
@@ -958,7 +971,7 @@ CONDITION:
                     $capture->{$_} = $result->{$_} foreach keys %$result;
                 }
             }
-  
+
             # Apply all kids conditions. We $op->can(kids) (see above).
             if (exists $condition->{kids}) {
                 my $kidno = 0;
@@ -972,7 +985,7 @@ CONDITION:
 
                     my ($result) = opgrep( $kidconditions->[$kidno++], $kid );
                     next CONDITION if not $result;
-                    
+
                     if (not blessed($result)) {
                         # copy over the captured data/ops from the recursion
                         $capture->{$_} = $result->{$_} foreach keys %$result;
@@ -1033,7 +1046,7 @@ Example:
     first => { name => 'rv2hv', },
     'last' => { name => 'const', },
   };
-  
+
   my @ops = opgrep( {
       name => 'leavesub',
       first => {
@@ -1080,10 +1093,10 @@ sub op_or {
 # sub op_pattern_match {
 #   my $op = shift;
 #   my $pattern = shift;
-# 
+#
 #   my $ret = {};
-# 
-#   
+#
+#
 #   return $ret;
 # }
 
