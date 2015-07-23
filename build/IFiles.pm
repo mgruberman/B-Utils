@@ -1,15 +1,16 @@
 package B::Utils::Install::Files;
 
 $self = {
+          'inc' => '',
           'typemaps' => [
                           'typemap'
                         ],
-          'libs' => '',
-          'inc' => '',
-          'deps' => []
+          'deps' => [],
+          'libs' => ''
         };
 
 
+# this is for backwards compatiblity
 @deps = @{ $self->{deps} };
 @typemaps = @{ $self->{typemaps} };
 $libs = $self->{libs};
